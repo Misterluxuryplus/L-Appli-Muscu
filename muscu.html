@@ -318,7 +318,7 @@ function bkNeeded(){
   var t=S.lastBackup||0;
   if(!t) return true;
   var newer=S.sessions.some(function(x){return new Date(x.date).getTime()>t;});
-  return newer && (Date.now()-t)>7*86400000;
+  return newer;
 }
 function bkOk(){S.lastBackup=Date.now();save();render();toast('Sauvegarde faite ✅');}
 function bkCopy(txt){
@@ -415,7 +415,7 @@ function viewToday(){
     h+='<div class="card hl" style="text-align:center"><div class="big">'+sm.total+' kcal</div><div class="muted small" style="margin:4px 0 10px">dépensées · muscu '+sm.g+' + '+(sm.label||'tapis')+' '+sm.t+'</div>'+extraSum(sm)+
        (sm.note?'<p class="small" style="margin:0 0 10px;line-height:1.5">'+sm.note+'</p>':'')+(!calib&&nextPlannedText()?'<p class="small" style="margin:0 0 10px">📅 '+nextPlannedText()+'</p>':'')+'<button class="sm" data-act="sumOk">OK</button></div>';}
   if(pr.name) h+='<p class="b" style="font-size:19px;margin:0 0 12px">Salut '+esc(pr.name)+' 👋</p>';
-  if(bkNeeded()) h+='<div class="card" style="border-color:var(--accent2)"><div class="row between"><span class="small">💾 Sauvegarde : <b>'+bkAgo()+'</b></span><button class="sm primary" data-act="backupNow">Sauvegarder</button></div></div>';
+  if(bkNeeded()) h+='<div class="card" style="border-color:var(--accent2)"><div class="row between"><span class="small">💾 '+(S.lastBackup?'Séance pas encore sauvegardée':'Pas encore sauvegardé')+' · dernière sauvegarde : <b>'+bkAgo()+'</b></span><button class="sm primary" data-act="backupNow">Sauvegarder</button></div></div>';
   var ml=missedList();
   if(ml.length){
     var mk=ml[0], mkey=pm[mk], mp=S.program[mkey];
