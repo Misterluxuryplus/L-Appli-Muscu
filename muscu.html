@@ -203,7 +203,7 @@ function defaultProgram(){
   return buildProgram(pr.goal||'both',pr.level||'novice',nd);
 }
 function defaultState(){
-  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
+  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
 }
 var SEED_ROWS=[];
 function ensureSeed(){
@@ -825,7 +825,7 @@ function exerciseNames(){
 
 /* ---------- planning ---------- */
 var DOW=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-var calOff=0, calMove=null, calAdd=null, obStep=0, obW=null;
+var calOff=0, calMove=null, calAdd=null, calAct=null, obStep=0, obW=null;
 function parseYmd(x){return new Date(x+'T12:00:00');}
 function addDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
 function weekStartOf(d){var x=new Date(d.getTime());x.setHours(12,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
@@ -924,6 +924,8 @@ function rirHtml(e,i){
     [['A','Trop dur'],['B','Bien'],['C','Facile'],['D','Trop facile']].map(function(o){return '<button class="sm" data-act="rir" data-ex="'+i+'" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div></div>';
 }
 
+function actKcal(a){return Math.round(+a.kcal||0);}
+function actEstimate(min){var w=curWeight()||80; return Math.round(4*w*(min/60));}
 function viewCal(){
   var pm=plannedMap(), today=ymd(new Date()), done={};
   S.sessions.forEach(function(se){var k=ymd(new Date(se.date));(done[k]=done[k]||[]).push(se);});
@@ -948,8 +950,17 @@ function viewCal(){
         var dk=nextKeyAround(k);
         inner+='<label class="f">Quelle séance ?</label><select id="calKey">'+Object.keys(S.program).map(function(kk){return '<option value="'+kk+'"'+(kk===dk?' selected':'')+'>'+esc(S.program[kk].name)+'</option>';}).join('')+'</select>'+
                '<div class="row" style="margin-top:8px"><button class="sm primary" data-act="calAddOk" data-date="'+k+'">Ajouter</button><button class="sm ghost" data-act="calAddCancel">✕</button></div>';
-      } else inner+='<div class="muted small">Repos 😴</div>'+(k>=today?'<button class="sm ghost" data-act="calAdd" data-date="'+k+'" style="margin-top:6px">＋ Ajouter une séance</button>':'');
+      } else inner+=((S.acts||[]).some(function(x){return x.date===k;})?'':'<div class="muted small">Repos 😴</div>')+(k>=today?'<button class="sm ghost" data-act="calAdd" data-date="'+k+'" style="margin-top:6px">＋ Ajouter une séance</button>':'');
     }
+    (S.acts||[]).filter(function(x){return x.date===k;}).forEach(function(x){
+      inner+='<div class="row between" style="margin-top:6px"><div class="ok b">🏓 '+esc(x.name)+' · '+x.min+' min · '+(x.est?'≈ ':'')+actKcal(x)+' kcal</div><button class="sm ghost danger" data-act="actDel" data-id="'+x.id+'">✕</button></div>';
+    });
+    if(calAct===k){
+      var lastA=(S.acts||[])[(S.acts||[]).length-1];
+      inner+='<div style="margin-top:8px"><label class="f">Activité</label><input id="actName" value="'+esc(lastA?lastA.name:'Tennis de table')+'">'+
+             '<div class="two" style="margin-top:8px"><div><label class="f">Durée (min)</label><input id="actMin" inputmode="numeric" value="'+(lastA?lastA.min:90)+'"></div><div><label class="f">Calories</label><input id="actKcal" inputmode="numeric" placeholder="vide = estimation"></div></div>'+
+             '<div class="row" style="margin-top:8px"><button class="sm primary" data-act="actOk" data-date="'+k+'">Ajouter</button><button class="sm ghost" data-act="actCancel">✕</button></div></div>';
+    } else inner+='<button class="sm ghost" data-act="actAdd" data-date="'+k+'" style="margin-top:8px">＋ Activité (tennis de table…)</button>';
     h+='<div class="card'+(k===today?' hl':'')+'" style="padding:12px 14px"><div class="row" style="align-items:flex-start"><div class="dow b">'+DOW[i]+' '+d.getDate()+'</div><div style="flex:1">'+inner+'</div></div></div>';
   }
   var pi=planInfo();
@@ -1000,6 +1011,7 @@ function viewProgress(){
   var names=exerciseNames();
   var ws=weekStart().getTime(), vol=0, wk=0;
   S.sessions.forEach(function(se){ if(new Date(se.date).getTime()>=ws){wk++;vol+=se.kcal||0;} });
+  (S.acts||[]).forEach(function(x){ if(new Date(x.date+'T12:00:00').getTime()>=ws){vol+=actKcal(x);} });
   var h='<div class="grid3"><div class="stat"><div class="v">'+S.sessions.length+'</div><div class="l">séances au total</div></div>'+
         '<div class="stat"><div class="v">'+wk+'</div><div class="l">cette semaine</div></div>'+
         '<div class="stat"><div class="v">'+Math.round(vol)+'</div><div class="l">kcal cette semaine</div></div></div>';
@@ -1218,6 +1230,16 @@ document.addEventListener('click',function(ev){
   else if(a==='bodyDel'){if(confirmTwice('bd'+t.dataset.id)){S.body=S.body.filter(function(e){return e.id!==t.dataset.id;});save();render();}}
   else if(a==='cm'){S.cm=t.dataset.m;save();render();}
   else if(a==='sumOk'){S.summary=null;save();render();}
+  else if(a==='actAdd'){calAct=t.dataset.date;calAdd=null;calMove=null;render();}
+  else if(a==='actCancel'){calAct=null;render();}
+  else if(a==='actDel'){S.acts=(S.acts||[]).filter(function(x){return x.id!==t.dataset.id;});save();render();}
+  else if(a==='actOk'){
+    var an=($('#actName').value||'').trim()||'Activité', am=parseInt($('#actMin').value,10)||0, ak2=parseFloat(String($('#actKcal').value||'').replace(',','.'));
+    if(am<=0){toast('Indique la durée en minutes.');return;}
+    var est=!(ak2>0);
+    S.acts=S.acts||[]; S.acts.push({id:uid(),date:t.dataset.date,name:an,min:am,kcal:est?actEstimate(am):Math.round(ak2),est:est});
+    calAct=null;save();render();toast('Activité ajoutée ✅');
+  }
   else if(a==='calAdd'){calAdd=t.dataset.date;calMove=null;render();}
   else if(a==='calAddCancel'){calAdd=null;render();}
   else if(a==='calAddOk'){
