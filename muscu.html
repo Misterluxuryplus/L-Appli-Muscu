@@ -886,7 +886,6 @@ function viewProg(){
     '<p class="small muted" style="margin:10px 0 0">'+({lose:'Perdre du poids : charges légères, 12 à 15 répétitions, 30 min de cardio.',both:'Perdre du poids et me muscler : charges moyennes, 10 à 12 répétitions, 30 min de cardio. Tu perds du gras en gardant ton muscle.',muscle:'Me muscler : charges plus lourdes, 8 à 12 répétitions, 15 min de cardio.'}[pr.goal||'both'])+'</p>'+
     '<div class="two" style="margin-top:10px"><div><label class="f">Taille (cm)</label><input inputmode="numeric" data-pr="height" value="'+esc(pr.height||'')+'"></div><div><label class="f">Précautions / douleurs</label><input data-pr="injuries" value="'+esc(pr.injuries||'')+'" placeholder="ex. genou"></div></div>'+
     '<button class="sm ghost" style="margin-top:12px" data-act="redoIntro">Revoir la présentation</button></div>';
-  h+='<div class="card"><h2 style="margin-top:0">Apparence</h2><div class="seg"><button class="'+(S.theme==='light'?'':'on')+'" data-act="theme" data-v="dark">🌙 Sombre</button><button class="'+(S.theme==='light'?'on':'')+'" data-act="theme" data-v="light">☀️ Clair</button></div></div>';
   h+='<details class="sec" data-sec="mach"'+(openSec.mach?' open':'')+'><summary>🛠️ Mes machines</summary>';
   h+='<div class="card"><p class="small muted" style="margin:0 0 10px">Touche celles que ta salle n’a pas : je les remplace automatiquement.</p><div class="seg">'+Object.keys(ALT).map(function(k){var off=!!nmach()[k], nm0=k.charAt(0).toUpperCase()+k.slice(1);return '<button class="sm'+(off?' danger':'')+'" data-act="machToggle" data-k="'+esc(k)+'">'+(off?'✗ ':'✓ ')+esc(nm0)+'</button>';}).join('')+'</div></div>';
   h+='</details>';
@@ -1340,7 +1339,7 @@ function viewBody(){
 
 function render(){
   try{ensureBonus();}catch(e){}
-  try{document.documentElement.setAttribute('data-theme',S.theme==='light'?'light':'dark');var tm=document.querySelector('meta[name=theme-color]');if(tm)tm.setAttribute('content',S.theme==='light'?'#f4f5f8':'#0f1115');}catch(e){}
+  try{document.documentElement.setAttribute('data-theme','light');var tm=document.querySelector('meta[name=theme-color]');if(tm)tm.setAttribute('content','#f4f5f8');}catch(e){}
   if(S.phase==='calib'){S.phase='prog';if(!S.plan.start||S.plan.start>ymd(new Date()))S.plan.start=ymd(new Date());save();}
   var nav=$('#tabs');
   if(!S.onboarded){ nav.style.display='none'; $('#view').innerHTML=viewOnboard(); $('#rest').style.display='none'; return; }
