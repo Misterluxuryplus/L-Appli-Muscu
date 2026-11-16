@@ -1054,6 +1054,11 @@ function viewCal(){
   var h='<div class="card row between"><button class="sm" data-act="calPrev">◀</button><div style="text-align:center"><div class="b">'+fmtDate(ymd(m))+' – '+fmtDate(ymd(e))+'</div>'+
         (calOff?'<button class="sm ghost" data-act="calToday" style="margin-top:4px">Revenir à aujourd’hui</button>':'<div class="muted small">Cette semaine</div>')+'</div><button class="sm" data-act="calNext">▶</button></div>';
   if(S.phase==='calib') h+='<div class="card small" style="border-color:var(--accent2)">🔎 Phase test : ajoute ici tes séances découverte.</div>';
+  function dayName(kk){ var dd=done[kk]; if(dd&&dd.length){var sd=dd[dd.length-1].day; return S.program[sd]?S.program[sd].name:sd;} var pk=pm[kk]; return pk&&S.program[pk]?S.program[pk].name:''; }
+  var wcov={}, wcount=0;
+  for(var j=0;j<7;j++){ var nj=dayName(ymd(addDays(m,j))); if(nj){wcount++; var mj=muscles(nj); for(var q in mj) wcov[q]=1;} }
+  var wmiss=Object.keys(MLAB).filter(function(q){return !wcov[q];});
+  if(S.phase!=='calib' && wcount && ymd(e)>=today && wmiss.length) h+='<div class="card small" style="border-color:var(--bad)">⚠️ <b>Cette semaine, il manquera :</b> '+wmiss.map(function(q){return MLAB[q];}).join(', ')+'. Ajoute ou décale une séance pour travailler tout le corps.</div>';
   for(var i=0;i<7;i++){
     var d=addDays(m,i), k=ymd(d), key=pm[k], ds=done[k]||[], inner='';
     ds.forEach(function(se){inner+='<div class="ok b">✓ '+sIc(S.program[se.day]?S.program[se.day].name:se.day)+esc(S.program[se.day]?S.program[se.day].name:se.day)+(se.kcal?' · '+se.kcal+' kcal':'')+'</div>';});
@@ -1065,6 +1070,9 @@ function viewCal(){
         inner+='<div class="b">'+sIc(nm)+esc(nm)+(isExtra?' <span class="pill">ajoutée</span>':'')+'</div>'+(k<today?'<div class="late small">Manquée</div>':(k===today?'':'<div class="muted small">Prévue</div>'))+
                '<div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">'+(k===today?'<button class="sm primary" data-act="start" data-day="'+key+'">Commencer</button>':'')+
                '<button class="sm ghost" data-act="calMove" data-date="'+k+'">Décaler</button><button class="sm ghost danger" data-act="calSkip" data-date="'+k+'">'+(isExtra?'Supprimer':'Passer')+'</button></div>';
+        var pvn=dayName(ymd(addDays(d,-1))), nxn=dayName(ymd(addDays(d,1))), mm=muscles(nm);
+        if(pvn&&overlaps(mm,muscles(pvn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que la veille ('+esc(pvn)+') : mieux vaut laisser 48 h.</p>';
+        else if(nxn&&overlaps(mm,muscles(nxn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que le lendemain ('+esc(nxn)+') : mieux vaut laisser 48 h.</p>';
       }
     } else if(!ds.length){
       if(calAdd===k){
