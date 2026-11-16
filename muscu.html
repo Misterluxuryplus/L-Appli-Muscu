@@ -226,7 +226,7 @@ function defaultProgram(){
   return buildProgram(pr.goal||'both',pr.level||'novice',nd);
 }
 function defaultState(){
-  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'dark',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
+  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'dark',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
 }
 var SEED_ROWS=[];
 function ensureSeed(){
@@ -931,9 +931,40 @@ function plannedMap(){
   }
   var mv=S.moves||{};
   Object.keys(mv).forEach(function(o){ if(out[o]){ var k=out[o]; delete out[o]; if(mv[o]) out[mv[o]]=k; } });
+  var ov=S.over||{};
+  Object.keys(ov).forEach(function(d3){ if(out[d3]&&S.program[ov[d3]]) out[d3]=ov[d3]; });
   var ex2=S.extras||{};
   Object.keys(ex2).forEach(function(d2){ out[d2]=ex2[d2]; });
   return out;
+}
+function doneByDate(){var o={};S.sessions.forEach(function(se){var k=ymd(new Date(se.date));(o[k]=o[k]||[]).push(se);});return o;}
+function dayNameOn(k,pm,dn){ var dd=dn[k]; if(dd&&dd.length){var sd=dd[dd.length-1].day; return S.program[sd]?S.program[sd].name:sd;} var pk=pm[k]; return pk&&S.program[pk]?S.program[pk].name:''; }
+function perms(a){ if(a.length<=1) return [a.slice()]; var out=[]; a.forEach(function(x,i){ var rest=a.slice(0,i).concat(a.slice(i+1)); perms(rest).forEach(function(p){out.push([x].concat(p));}); }); return out; }
+/* réorganise automatiquement les séances non faites d'une semaine pour éviter les mêmes muscles deux jours de suite */
+function autoReflow(anyDate){
+  if(!anyDate||S.phase==='calib') return false;
+  S.over=S.over||{};
+  var ws=weekStartOf(parseYmd(anyDate)), today=ymd(new Date()), pm=plannedMap(), dn=doneByDate(), slots=[], i;
+  for(i=0;i<7;i++){ var k=ymd(addDays(ws,i)); if(k>today && pm[k] && !(S.extras||{})[k] && !(dn[k]&&dn[k].length)) slots.push(k); }
+  if(slots.length<2) return false;
+  var cur=slots.map(function(k){return pm[k];}), best=null, bc=Infinity;
+  perms(cur).forEach(function(pr){
+    var cost=0, at={}; slots.forEach(function(k,ix){at[k]=pr[ix];});
+    slots.forEach(function(k,ix){
+      var nm=S.program[pr[ix]].name, prev=ymd(addDays(parseYmd(k),-1)), pn=at[prev]?S.program[at[prev]].name:dayNameOn(prev,pm,dn);
+      if(pn && overlaps(muscles(nm),muscles(pn))) cost+=10;
+      if(pr[ix]!==cur[ix]) cost+=1;
+    });
+    if(cost<bc){bc=cost;best=pr;}
+  });
+  var changed=false;
+  slots.forEach(function(k,ix){ if(best[ix]!==cur[ix]) changed=true; S.over[k]=best[ix]; });
+  return changed;
+}
+function reflowDates(list){
+  var ch=false, seen={};
+  list.forEach(function(d){ if(!d) return; var w=ymd(weekStartOf(parseYmd(d))); if(seen[w]) return; seen[w]=1; if(autoReflow(d)) ch=true; });
+  return ch;
 }
 function planInfo(){
   if(S.phase==='calib') return {wk:0,weeks:(S.plan&&S.plan.weeks)||8,total:0,done:0,pct:0,calib:true};
@@ -992,7 +1023,7 @@ function nextCalibName(){var k=nextCalibKey();return k?S.program[k].name:'';}
 function maybeFinishCalib(){
   if(S.phase!=='calib') return false;
   var c=calibStats();
-  if(c.total&&c.done>=c.total){S.phase='prog';S.plan.start=ymd(addDays(new Date(),1));S.moves={};return true;}
+  if(c.total&&c.done>=c.total){S.phase='prog';S.plan.start=ymd(addDays(new Date(),1));S.moves={};S.over={};return true;}
   return false;
 }
 function coachMsg(){
@@ -1388,11 +1419,11 @@ document.addEventListener('click',function(ev){
   else if(a==='calAdd'){calAdd=t.dataset.date;calMove=null;render();}
   else if(a==='calAddCancel'){calAdd=null;render();}
   else if(a==='calAddOk'){
-    var ak=$('#calKey').value; S.extras[t.dataset.date]=ak; calAdd=null; save(); render(); toast('Séance ajoutée ✅ à la suite de ton programme');
+    var ak=$('#calKey').value; S.extras[t.dataset.date]=ak; var rf4=reflowDates([t.dataset.date]); calAdd=null; save(); render(); toast('Séance ajoutée ✅'+(rf4?' Planning réorganisé automatiquement.':' à la suite de ton programme'));
   }
-  else if(a==='calSkip'){moveSession(t.dataset.date,'');save();render();toast('Séance retirée du planning.');}
-  else if(a==='missTom'){var tn=freeDayFrom(ymd(addDays(new Date(),1)));moveSession(t.dataset.date,tn);save();render();toast('Séance reportée au '+fmtDate(tn)+' ✅');}
-  else if(a==='obdays'){var nn=+t.dataset.n;S.plan.days=DAYMAP[nn]||DAYMAP[3];S.perWeek=nn;S.moves={};save();render();}
+  else if(a==='calSkip'){moveSession(t.dataset.date,'');var rf2=reflowDates([t.dataset.date]);save();render();toast(rf2?'Séance retirée. Planning réorganisé automatiquement.':'Séance retirée du planning.');}
+  else if(a==='missTom'){var tn=freeDayFrom(ymd(addDays(new Date(),1)));moveSession(t.dataset.date,tn);var rf3=reflowDates([tn]);save();render();toast('Séance reportée au '+fmtDate(tn)+' ✅'+(rf3?' Planning réorganisé automatiquement.':''));}
+  else if(a==='obdays'){var nn=+t.dataset.n;S.plan.days=DAYMAP[nn]||DAYMAP[3];S.perWeek=nn;S.moves={};S.over={};save();render();}
   else if(a==='obNext'){obStep=Math.min(3,obStep+1);render();window.scrollTo(0,0);}
   else if(a==='obPrev'){obStep=Math.max(0,obStep-1);render();window.scrollTo(0,0);}
   else if(a==='obset'){S.profile[t.dataset.f]=t.dataset.v;save();render();}
@@ -1401,11 +1432,11 @@ document.addEventListener('click',function(ev){
     if(ow&&(curWeight()==null||Math.abs(ow-curWeight())>0.05)) S.body.push({id:uid(),date:ymd(new Date()),w:ow,waist:null});
     S.program=buildProgram(S.profile.goal||'both',S.profile.level||'novice',(S.plan.days||[0,2,4]).length);
     S.cardioMin=(S.profile.goal==='muscle')?15:30;
-    S.moves={}; S.extras={}; S.phase='prog'; S.plan.start=ymd(new Date());
+    S.moves={};S.over={}; S.extras={}; S.phase='prog'; S.plan.start=ymd(new Date());
     S.onboarded=true; tab='today'; save(); render(); window.scrollTo(0,0); toast('C’est parti ! 💪');
   }
-  else if(a==='skipCalib'){if(confirmTwice('skipCalib')){S.phase='prog';S.plan.start=ymd(new Date());S.moves={};save();render();toast('Programme démarré 💪');}}
-  else if(a==='resetSessions'){if(confirmTwice('resetSessions')){S.sessions=[];S.draft=null;S.summary=null;S.moves={};S.extras={};S.phase='calib';S.plan.start=ymd(new Date());restEnd=0;cancelBeep();tab='today';save();render();toast('Séances effacées. On repart de zéro ✅');}}
+  else if(a==='skipCalib'){if(confirmTwice('skipCalib')){S.phase='prog';S.plan.start=ymd(new Date());S.moves={};S.over={};save();render();toast('Programme démarré 💪');}}
+  else if(a==='resetSessions'){if(confirmTwice('resetSessions')){S.sessions=[];S.draft=null;S.summary=null;S.moves={};S.over={};S.extras={};S.phase='calib';S.plan.start=ymd(new Date());restEnd=0;cancelBeep();tab='today';save();render();toast('Séances effacées. On repart de zéro ✅');}}
   else if(a==='resetAll'){if(confirmTwice('resetAll')){S=defaultState();ensureSeed();obStep=0;obW=null;tab='today';restEnd=0;cancelBeep();save();render();window.scrollTo(0,0);}}
   else if(a==='redoIntro'){S.onboarded=false;obStep=0;obW=null;save();render();}
   else if(a==='rir'){
@@ -1428,13 +1459,14 @@ document.addEventListener('click',function(ev){
     var nd=$('#calDate').value, pm=plannedMap();
     if(!nd){toast('Choisis une date.');return;}
     if(pm[nd]&&nd!==calMove){toast('Une autre séance est déjà prévue ce jour-là.');return;}
-    moveSession(calMove,nd);
-    calMove=null; save(); render(); toast('Séance décalée ✅');
+    var fromD=calMove; moveSession(calMove,nd);
+    var rf1=reflowDates([nd,fromD]);
+    calMove=null; save(); render(); toast(rf1?'Séance décalée ✅ Planning réorganisé automatiquement pour limiter les mêmes muscles deux jours de suite':'Séance décalée ✅');
   }
   else if(a==='pday'){
     var di=+t.dataset.d, ds=S.plan.days||[], ix=ds.indexOf(di);
     if(ix>=0){ if(ds.length<=1){toast('Garde au moins un jour.');return;} ds.splice(ix,1); } else ds.push(di);
-    ds.sort(); S.plan.days=ds; S.perWeek=ds.length; S.moves={}; save(); render();
+    ds.sort(); S.plan.days=ds; S.perWeek=ds.length; S.moves={};S.over={}; save(); render();
   }
   else if(a==='compAdd'){
     var cw=num($('#cW').value),cf=num($('#cFat').value),cmu=num($('#cMus').value),cab=num($('#cAbd').value),cv=num($('#cVisc').value),cd=$('#cDate').value||ymd(new Date());
@@ -1474,7 +1506,7 @@ document.addEventListener('change',function(ev){
   else if(t.dataset.pls){
     if(t.dataset.pls==='weeks') S.plan.weeks=parseInt(t.value,10)||8;
     else if(t.value) S.plan.start=t.value;
-    S.moves={}; save(); render();
+    S.moves={};S.over={}; save(); render();
   }
   else if(t.dataset.sel){S.sel=t.value;save();render();}
   else if(t.dataset.tw){render();}
