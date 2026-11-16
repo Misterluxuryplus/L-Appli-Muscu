@@ -439,7 +439,7 @@ function scheduleBeep(sec){
   cancelBeep(); if(!actx) return;
   try{
     var t0=actx.currentTime+sec;
-    [0,0.3,0.6].forEach(function(d){
+    [0,0.35,0.7,1.05,1.4,1.75].forEach(function(d){
       var o=actx.createOscillator(), g=actx.createGain();
       o.type='sine'; o.frequency.value=988;
       g.gain.setValueAtTime(0.0001,t0+d); g.gain.exponentialRampToValueAtTime(0.5,t0+d+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+d+0.22);
@@ -454,7 +454,7 @@ function updateRest(){
   var left=Math.ceil((restEnd-Date.now())/1000);
   if(restEnd && left<=0){
     restEnd=0;
-    try{if(navigator.vibrate)navigator.vibrate([200,100,200]);}catch(e){}
+    try{if(navigator.vibrate)navigator.vibrate([200,100,200,100,200,100,200,100,200]);}catch(e){}
     toast('Repos terminé, on repart ! 💥');
   }
   if(restEnd && tab==='today' && S.draft){
