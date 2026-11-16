@@ -165,7 +165,8 @@ var ALT={
  'presse à cuisses':['Squat à la Smith machine','Squat goblet haltère'],
  'leg extension':['Fentes avec haltères','Squat goblet haltère'],
  'leg curl assis':['Leg curl allongé','Soulevé de terre roumain haltères'],
- 'mollets à la presse':['Mollets debout machine','Mollets debout haltères'],
+ 'mollets assis machine':['Mollets à la presse','Mollets debout haltères'],
+ 'mollets à la presse':['Mollets assis machine','Mollets debout machine'],
  'abducteurs machine':['Abduction à la poulie','Marche latérale avec élastique'],
  'développé couché machine':['Développé couché haltères','Développé couché Smith machine'],
  'développé incliné machine':['Développé incliné haltères','Pompes inclinées'],
@@ -203,22 +204,22 @@ function buildProgram(goal,level,days){
   function M(n){return ex(n,sm,main);}
   function I(n){return ex(n,3,iso);}
   var note='Échauffe-toi 5 min, puis finis par le cardio.';
-  var jambes=[M('Presse à cuisses'),I('Leg extension'),I('Leg curl assis'),I('Mollets à la presse')].concat(inter?[I('Abducteurs machine')]:[]);
+  var jambes=[M('Presse à cuisses'),I('Leg extension'),I('Leg curl assis'),I('Mollets assis machine')].concat(inter?[I('Abducteurs machine')]:[]);
   var pecs=[M('Développé couché machine')].concat(inter?[M('Développé incliné machine')]:[]).concat([I('Pec deck'),M('Développé épaules machine'),I('Élévations latérales machine')]);
   var dos=[M('Tirage vertical'),M('Rowing machine')].concat(inter?[M('Tirage horizontal poulie')]:[]).concat([I('Curl biceps machine'),I('Crunch machine')]);
   var sess;
   if(days<=2){
     sess=[['Séance Jambes & Pectoraux',[M('Presse à cuisses'),I('Leg curl assis'),M('Développé couché machine'),I('Pec deck'),I('Crunch machine')].concat(inter?[I('Abducteurs machine')]:[])],
-          ['Séance Dos & Épaules',[M('Tirage vertical'),M('Rowing machine'),M('Développé épaules machine'),I('Élévations latérales machine'),I('Curl biceps machine')].concat(inter?[I('Mollets à la presse')]:[])]];
+          ['Séance Dos & Épaules',[M('Tirage vertical'),M('Rowing machine'),M('Développé épaules machine'),I('Élévations latérales machine'),I('Curl biceps machine')].concat(inter?[I('Mollets assis machine')]:[])]];
   } else if(days===3){
-    sess=[['Séance Jambes & Pectoraux',[M('Presse à cuisses'),I('Leg curl assis'),M('Développé couché machine'),I('Pec deck'),I('Mollets à la presse')]],
+    sess=[['Séance Jambes & Pectoraux',[M('Presse à cuisses'),I('Leg curl assis'),M('Développé couché machine'),I('Pec deck'),I('Mollets assis machine')]],
           ['Séance Dos & Épaules',[M('Tirage vertical'),M('Rowing machine'),M('Développé épaules machine'),I('Élévations latérales machine'),I('Curl biceps machine')]],
           ['Séance Corps entier',[M('Presse à cuisses'),M('Développé couché machine'),M('Tirage vertical'),I('Leg extension')].concat(inter?[I('Extension triceps poulie')]:[]).concat([I('Crunch machine')])]];
   } else {
     sess=[['Séance Jambes',jambes],
       ['Séance Pectoraux & Triceps',[M('Développé couché machine')].concat(inter?[M('Développé incliné machine')]:[]).concat([I('Pec deck'),I('Extension triceps poulie')])],
       ['Séance Dos & Biceps',[M('Tirage vertical'),M('Rowing machine')].concat(inter?[M('Tirage horizontal poulie')]:[]).concat([I('Curl biceps machine')])],
-      ['Séance Épaules & Abdos',[M('Développé épaules machine'),I('Élévations latérales machine'),I('Crunch machine'),I('Mollets à la presse')]]];
+      ['Séance Épaules & Abdos',[M('Développé épaules machine'),I('Élévations latérales machine'),I('Crunch machine'),I('Mollets assis machine')]]];
     if(days>=5) sess.push(['Séance Jambes & Fessiers',[M('Presse à cuisses'),I('Leg curl assis'),I('Abducteurs machine'),I('Leg extension')]]);
   }
   var out={}, keys=['A','B','C','D','E'];
@@ -237,6 +238,10 @@ var SEED_ROWS=[];
 function ensureSeed(){
   var changed=false;
   if((S.progV||0)<4){ if(!S.sessions.length) S.program=defaultProgram(); S.progV=4; changed=true; }
+  if((S.progV||0)<5){
+    Object.keys(S.program||{}).forEach(function(k){ (S.program[k].ex||S.program[k].exercises||[]).forEach(function(e){ if(e&&e.name==='Mollets à la presse') e.name='Mollets assis machine'; }); });
+    S.progV=5; changed=true;
+  }
   if(!S.plan||!S.plan.start){ S.plan=Object.assign({weeks:8,days:[0,2,4]},S.plan||{}); S.plan.start=ymd(new Date()); changed=true; }
   if(S.seeded) return changed;
   S.comp=SEED_ROWS.map(function(r){return {id:uid(),date:r[0],w:r[1],fat:r[2],pct:r[3],mus:r[4],abd:r[5],visc:r[6]};});
@@ -529,7 +534,7 @@ function viewToday(){
   h+='<div class="card hl" style="border-left:6px solid '+sCol(p.name)+'">'+top+'<div class="b" style="font-size:22px;margin:14px 0 4px">'+sIc(p.name)+esc(p.name)+(!calib&&tk===nd?' <span class="pill">aujourd’hui</span>':'')+'</div>'+
      '<p class="small muted" style="margin:0 0 4px">Dernière fois : '+agoTxt(lastTime(nd))+'</p>'+
      '<p class="small muted" style="margin:0 0 8px">'+p.ex.map(function(e){return esc(e.name);}).join(' · ')+'</p>'+
-     (calib?'<p class="small" style="margin:0 0 12px">'+cm.x+'</p>':'<div class="tip" style="margin:6px 0 10px">'+coachFocus(p)+'<div class="muted" style="margin-top:6px">'+cm.x+'</div></div>'+coverHtml(p))+'<div style="height:10px"></div>'+
+     (calib?'<p class="small" style="margin:0 0 12px">'+cm.x+'</p>':'<div class="tip" style="margin:6px 0 10px">'+coachFocus(p)+(cm.x?'<div class="muted" style="margin-top:6px">'+cm.x+'</div>':'')+'</div>'+coverHtml(p))+'<div style="height:10px"></div>'+
      '<button class="primary full" style="padding:16px;font-size:19px;min-height:58px" data-act="start" data-day="'+nd+'">'+(calib?'Commencer le test':'Commencer la séance')+'</button></div>';
   var others=progKeys().filter(function(k){return k!==nd;});
   if(others.length){
@@ -589,6 +594,16 @@ var GUIDE={
   e:'Plier les genoux, rebondir, amplitude trop courte.',
   v:'Charge modérée et beaucoup de reps (15). Tu peux ouvrir ou fermer légèrement les pointes pour varier.',
   c:'Garde les pieds bien calés : un pied qui glisse de la plateforme est dangereux.'},
+ 'mollets assis machine':{
+  m:'Mollets (surtout le soléaire)',
+  s:'Dans les mollets (ça brûle).',
+  r:'Assis, le haut des cuisses sous le coussin, l’avant des pieds sur la plateforme, talons dans le vide. Règle le coussin pour qu’il appuie juste au-dessus des genoux.',
+  p:'Pieds à largeur de hanches, pointes droites, dos appuyé, regard devant.',
+  g:'Monte sur la pointe des pieds, marque 1 seconde en haut, puis laisse les talons descendre bien bas pour étirer les mollets.',
+  t:'Montée 1 s, pause 1 s, descente 2 à 3 s. Souffle en montant.',
+  e:'Rebondir, amplitude trop courte, genoux qui bougent.',
+  v:'Charge modérée et beaucoup de reps (15). Le poids se règle avec la tige dans la pile.',
+  c:'Ne rebondis pas en bas : l’étirement doit rester contrôlé.'},
  'développé couché machine':{
   m:'Pectoraux, avant des épaules, triceps',
   s:'Au milieu de la poitrine.',
@@ -671,6 +686,7 @@ var QUICK={
  'presse à cuisses':['Dos collé, fessiers au fond du siège','Pieds à largeur d’épaules, au milieu','Descends à 90°, pousse sans verrouiller les genoux'],
  'leg extension':['Genoux au bord du siège, coussin sur le bas des tibias','Tends les jambes, pause 1 s','Redescends lentement, sans élan'],
  'leg curl assis':['Axe de la machine aligné avec les genoux','Ramène les talons sous toi, pause 1 s','Reviens lentement, bassin collé'],
+ 'mollets assis machine':['Cuisses sous le coussin, avant des pieds sur la plateforme','Monte sur la pointe, pause 1 s','Redescends lentement, talons bien bas'],
  'mollets à la presse':['Seul l’avant des pieds sur la plateforme','Monte sur la pointe, pause 1 s','Redescends en étirant, genoux presque tendus'],
  'abducteurs machine':['Dos collé, coussins à l’extérieur des genoux','Écarte les jambes, pause 1 s','Reviens lentement, sans claquer les poids'],
  'développé couché machine':['Poignées à hauteur de poitrine, dos collé','Pousse sans verrouiller les coudes','Reviens lentement, épaules basses'],
@@ -715,6 +731,7 @@ var MACH={
  'presse à cuisses':'Leg press : assis ou allongé, un grand plateau pour les pieds que tu pousses.',
  'leg extension':'Assis, un coussin sur le bas des tibias : tu tends les jambes.',
  'leg curl assis':'Assis, un coussin derrière les chevilles : tu ramènes les talons sous le siège.',
+ 'mollets assis machine':'Assis, un coussin sur le haut des cuisses, pile de poids : tu montes sur la pointe des pieds.',
  'mollets à la presse':'Sur la presse à cuisses : seul l’avant des pieds sur le plateau.',
  'abducteurs machine':'Assis, deux coussins à l’extérieur des genoux : tu écartes les jambes.',
  'développé couché machine':'Hammer Strength Chest Press : machine guidée à disques, deux bras indépendants, banc ou siège, poignées devant la poitrine. Note le poids TOTAL chargé (disques des deux côtés ensemble).',
@@ -1038,7 +1055,7 @@ function coachFocus(p){
   var e0=p&&p.ex&&p.ex[0]; if(!e0) return '';
   var info=lastInfo(e0.name,e0.reps);
   if(info) return '🎯 <b>Objectif du jour</b> : '+esc(e0.name)+', '+e0.sets+'×'+e0.reps+' avec <b>'+fmt(info.suggW)+' kg</b>. Bats ta dernière séance.';
-  return '🎯 <b>Objectif du jour</b> : sur '+esc(e0.name)+', trouve la charge avec laquelle tu fais <b>'+e0.reps+' répétitions</b>.';
+  return '🎯 <b>Objectif du jour</b> : sur '+esc(e0.name)+', trouve la charge avec laquelle tu fais <b>'+e0.reps+' répétitions</b>, sur chaque machine.';
 }
 function weightBefore(t){
   var best=null,bt=-1;
@@ -1084,7 +1101,7 @@ function coachMsg(){
   }
   if(pi.wk>pi.weeks) return {x:'Programme terminé 🎉 Refais un bilan InBody pour mesurer tes progrès.'};
   if(pi.wk<1) return {x:'Ton programme démarre le '+fmtDate(S.plan.start)+'.'};
-  if(pi.wk===1) return {x:'1re semaine : tu trouves tes charges directement pendant les séries.'};
+  if(pi.wk===1) return {x:''};
   if(pi.wk<=3) return {x:'Haut des reps partout ? Monte d’un cran.'};
   if(pi.wk===pi.weeks) return {x:'Dernière semaine : donne tout, puis refais un bilan InBody.'};
   return {x:'Bats ta dernière séance : 1 rep ou un cran de plus.'};
