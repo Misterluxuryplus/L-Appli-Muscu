@@ -167,8 +167,13 @@ var ALT={
  'leg curl assis':['Leg curl allongé','Soulevé de terre roumain haltères'],
  'mollets assis machine':['Mollets à la presse','Mollets debout haltères'],
  'mollets à la presse':['Mollets assis machine','Mollets debout machine'],
- 'abducteurs machine':['Abduction à la poulie','Marche latérale avec élastique'],
+ 'abducteurs machine':['Rear kick fessiers machine','Adducteurs machine'],
+ 'extension lombaires banc':['Relevé de genoux chaise romaine','Crunch machine'],
+ 'rear kick fessiers machine':['Abducteurs machine','Adducteurs machine'],
+ 'adducteurs machine':['Abducteurs machine','Rear kick fessiers machine'],
  'développé couché machine':['Développé couché haltères','Développé couché Smith machine'],
+ 'développé couché smith machine':['Développé décliné machine','Développé couché haltères'],
+ 'développé décliné machine':['Pec deck','Développé couché Smith machine'],
  'développé incliné machine':['Développé incliné haltères','Pompes inclinées'],
  'pec deck':['Écarté poulies vis-à-vis','Écarté haltères'],
  'développé épaules machine':['Développé épaules haltères','Développé épaules Smith machine'],
@@ -178,7 +183,8 @@ var ALT={
  'rowing machine':['Rowing haltère un bras','Tirage horizontal poulie'],
  'tirage horizontal poulie':['Rowing haltère un bras','Rowing machine'],
  'curl biceps machine':['Curl haltères','Curl poulie basse'],
- 'crunch machine':['Crunch au sol','Crunch poulie haute']
+ 'crunch machine':['Crunch au sol','Crunch poulie haute'],
+ 'relevé de genoux chaise romaine':['Crunch machine','Crunch au sol']
 };
 function nmach(){S.noMach=S.noMach||{};return S.noMach;}
 function resolveEx(name){
@@ -205,23 +211,24 @@ function buildProgram(goal,level,days){
   function I(n){return ex(n,3,iso);}
   var note='Échauffe-toi 5 min, puis finis par le cardio.';
   var jambes=[M('Presse à cuisses'),I('Leg extension'),I('Leg curl assis'),I('Mollets assis machine')].concat(inter?[I('Abducteurs machine')]:[]);
-  var pecs=[M('Développé couché machine')].concat(inter?[M('Développé incliné machine')]:[]).concat([I('Pec deck'),M('Développé épaules machine'),I('Élévations latérales machine')]);
+  var pecs=[M('Développé couché Smith machine')].concat(inter?[M('Développé incliné machine')]:[]).concat([M('Développé décliné machine'),M('Développé épaules machine'),I('Élévations latérales machine')]);
   var dos=[M('Tirage vertical'),M('Rowing machine')].concat(inter?[M('Tirage horizontal poulie')]:[]).concat([I('Curl biceps machine'),I('Crunch machine')]);
   var sess;
   if(days<=2){
-    sess=[['Séance Jambes & Pectoraux',[M('Presse à cuisses'),I('Leg curl assis'),M('Développé couché machine'),I('Pec deck'),I('Crunch machine')].concat(inter?[I('Abducteurs machine')]:[])],
+    sess=[['Séance Jambes & Pectoraux',[M('Presse à cuisses'),I('Leg curl assis'),M('Développé couché Smith machine'),M('Développé décliné machine'),I('Crunch machine')].concat(inter?[I('Abducteurs machine')]:[])],
           ['Séance Dos & Épaules',[M('Tirage vertical'),M('Rowing machine'),M('Développé épaules machine'),I('Élévations latérales machine'),I('Curl biceps machine')].concat(inter?[I('Mollets assis machine')]:[])]];
   } else if(days===3){
-    sess=[['Séance Jambes & Pectoraux',[M('Presse à cuisses'),I('Leg curl assis'),M('Développé couché machine'),I('Pec deck'),I('Mollets assis machine')]],
+    sess=[['Séance Jambes & Pectoraux',[M('Presse à cuisses'),I('Leg curl assis'),M('Développé couché Smith machine'),M('Développé décliné machine'),I('Mollets assis machine')]],
           ['Séance Dos & Épaules',[M('Tirage vertical'),M('Rowing machine'),M('Développé épaules machine'),I('Élévations latérales machine'),I('Curl biceps machine')]],
-          ['Séance Corps entier',[M('Presse à cuisses'),M('Développé couché machine'),M('Tirage vertical'),I('Leg extension')].concat(inter?[I('Extension triceps poulie')]:[]).concat([I('Crunch machine')])]];
+          ['Séance Corps entier',[M('Presse à cuisses'),M('Développé couché Smith machine'),M('Tirage vertical'),I('Leg extension')].concat(inter?[I('Extension triceps poulie')]:[]).concat([I('Crunch machine')])]];
   } else {
     sess=[['Séance Jambes',jambes],
-      ['Séance Pectoraux & Triceps',[M('Développé couché machine')].concat(inter?[M('Développé incliné machine')]:[]).concat([I('Pec deck'),I('Extension triceps poulie')])],
+      ['Séance Pectoraux & Triceps',[M('Développé couché Smith machine')].concat(inter?[M('Développé incliné machine')]:[]).concat([M('Développé décliné machine'),I('Extension triceps poulie')])],
       ['Séance Dos & Biceps',[M('Tirage vertical'),M('Rowing machine')].concat(inter?[M('Tirage horizontal poulie')]:[]).concat([I('Curl biceps machine')])],
       ['Séance Épaules & Abdos',[M('Développé épaules machine'),I('Élévations latérales machine'),I('Crunch machine'),I('Mollets assis machine')]]];
     if(days>=5) sess.push(['Séance Jambes & Fessiers',[M('Presse à cuisses'),I('Leg curl assis'),I('Abducteurs machine'),I('Leg extension')]]);
   }
+  sess.forEach(function(x){x[1]=x[1].filter(function(e){return e.name!=='Crunch machine';}); x[1].push(ex('Relevé de genoux chaise romaine',3,'10-15'));});
   var out={}, keys=['A','B','C','D','E'];
   sess.forEach(function(x,i){out[keys[i]]={name:x[0],note:note,ex:x[1]};});
   return (typeof S!=='undefined'&&S)?applyAvail(out):out;
@@ -241,6 +248,18 @@ function ensureSeed(){
   if((S.progV||0)<5){
     Object.keys(S.program||{}).forEach(function(k){ (S.program[k].ex||S.program[k].exercises||[]).forEach(function(e){ if(e&&e.name==='Mollets à la presse') e.name='Mollets assis machine'; }); });
     S.progV=5; changed=true;
+  }
+  if((S.progV||0)<6){
+    var RN={'Développé couché machine':'Développé couché Smith machine','Pec deck':'Développé décliné machine'};
+    Object.keys(S.program||{}).forEach(function(k){ (S.program[k].ex||[]).forEach(function(e){ if(e&&RN[e.name]) e.name=RN[e.name]; }); });
+    (S.sessions||[]).forEach(function(se){ (se.logs||[]).forEach(function(l){ if(l&&RN[l.name]) l.name=RN[l.name]; }); });
+    S.progV=6; changed=true;
+  }
+  if((S.progV||0)<7){
+    Object.keys(S.program||{}).forEach(function(k){ var P=S.program[k]; if(!P||!P.ex) return;
+      P.ex=P.ex.filter(function(e){return e.name!=='Crunch machine';});
+      if(!P.ex.some(function(e){return e.name==='Relevé de genoux chaise romaine';})) P.ex.push(ex('Relevé de genoux chaise romaine',k==='BONUS'?2:3,'10-15')); });
+    S.progV=7; changed=true;
   }
   if(!S.plan||!S.plan.start){ S.plan=Object.assign({weeks:8,days:[0,2,4]},S.plan||{}); S.plan.start=ymd(new Date()); changed=true; }
   if(S.seeded) return changed;
@@ -330,7 +349,7 @@ function bestBefore(name){
 }
 function progKeys(){return Object.keys(S.program).filter(function(k){return k!=='BONUS';});}
 function ensureBonus(){
-  if(S.program&&!S.program.BONUS) S.program.BONUS={name:'Séance Bonus (bras, épaules, abdos)',note:'Séance légère en plus : 2 séries par exercice. Finis par le cardio.',ex:[ex('Curl biceps machine',2,'12-15'),ex('Extension triceps poulie',2,'12-15'),ex('Élévations latérales machine',2,'15'),ex('Crunch machine',2,'15')]};
+  if(S.program&&!S.program.BONUS) S.program.BONUS={name:'Séance Bonus (bras, épaules, abdos)',note:'Séance légère en plus : 2 séries par exercice. Finis par le cardio.',ex:[ex('Curl biceps machine',2,'12-15'),ex('Extension triceps poulie',2,'12-15'),ex('Élévations latérales machine',2,'15'),ex('Relevé de genoux chaise romaine',2,'10-15')]};
 }
 function lastTime(k){var t=0;S.sessions.forEach(function(x){if(x.day===k){var d=new Date(x.date).getTime();if(d>t)t=d;}});return t;}
 function nextDay(){
@@ -597,13 +616,33 @@ var GUIDE={
  'mollets assis machine':{
   m:'Mollets (surtout le soléaire)',
   s:'Dans les mollets (ça brûle).',
-  r:'Assis, le haut des cuisses sous le coussin, l’avant des pieds sur la plateforme, talons dans le vide. Règle le coussin pour qu’il appuie juste au-dessus des genoux.',
-  p:'Pieds à largeur de hanches, pointes droites, dos appuyé, regard devant.',
+  r:'Assis, genoux sous les coussins, l’avant des pieds sur la plateforme, talons dans le vide. Machine à disques : elle pèse déjà 27,2 kg à vide (indiqué sur l’étiquette). Ajoute les disques sur les tiges devant.',
+  p:'Pieds à largeur de hanches, pointes droites, dos droit, regard devant.',
   g:'Monte sur la pointe des pieds, marque 1 seconde en haut, puis laisse les talons descendre bien bas pour étirer les mollets.',
   t:'Montée 1 s, pause 1 s, descente 2 à 3 s. Souffle en montant.',
   e:'Rebondir, amplitude trop courte, genoux qui bougent.',
-  v:'Charge modérée et beaucoup de reps (15). Le poids se règle avec la tige dans la pile.',
+  v:'Charge modérée et beaucoup de reps (15). Note le poids des disques que tu ajoutes (sans compter les 27,2 kg de la machine).',
   c:'Ne rebondis pas en bas : l’étirement doit rester contrôlé.'},
+ 'développé couché smith machine':{
+  m:'Pectoraux, avant des épaules, triceps',
+  s:'Au milieu de la poitrine.',
+  r:'Place le banc plat au centre sous la barre guidée : la barre doit descendre vers le bas de ta poitrine. Règle les butées de sécurité juste sous ta poitrine.',
+  p:'Allongé, yeux sous la barre, omoplates serrées, pieds au sol. Mains un peu plus larges que les épaules, poignets droits.',
+  g:'Décroche la barre en tournant les poignets, descends jusqu’au bas de la poitrine, puis pousse sans verrouiller les coudes.',
+  t:'Descente 2 à 3 s, poussée 1 s. Souffle en poussant.',
+  e:'Fesses qui décollent, coudes trop écartés, rebond sur la poitrine.',
+  v:'La barre est guidée mais ne s’arrête pas toute seule : commence léger. Note le poids des disques que tu ajoutes.',
+  c:'Remets toujours la barre sur ses crochets (tourne les poignets) avant de te relever.'},
+ 'développé décliné machine':{
+  m:'Bas des pectoraux, avant des épaules, triceps',
+  s:'Dans le bas de la poitrine.',
+  r:'Hammer Strength MTS Decline Press. Règle le siège pour que les poignées soient au niveau du bas de ta poitrine, dos bien calé. Choisis la charge avec la tige dans la pile (palier de 2,5 kg).',
+  p:'Prise des poignées par-dessus, omoplates serrées, pieds au sol.',
+  g:'Pousse vers l’avant et un peu vers le bas, bras presque tendus sans verrouiller les coudes.',
+  t:'Poussée 1 s, retour 2 à 3 s. Souffle en poussant.',
+  e:'Épaules qui montent, dos qui se décolle, retour trop rapide.',
+  v:'Charge modérée : garde 2 répétitions en réserve.',
+  c:'Ne lâche pas les poignées en fin de série : repose-les doucement.'},
  'développé couché machine':{
   m:'Pectoraux, avant des épaules, triceps',
   s:'Au milieu de la poitrine.',
@@ -673,20 +712,66 @@ var GUIDE={
   g:'Fléchis les bras pour amener les poignées vers les épaules, serre 1 seconde, redescends en 3 secondes sans tendre complètement.',
   t:'Montée 1 à 2 s, descente 3 s. Souffle en montant.',
   e:'Élan, épaules qui montent, bras qui décollent du pupitre.'},
+ 'relevé de genoux chaise romaine':{
+  m:'Abdominaux (surtout le bas du ventre)',
+  s:'Dans le bas du ventre.',
+  r:'Dos collé au dossier, avant-bras sur les coussins, mains sur les poignées, jambes qui pendent dans le vide. Épaules basses : ne te laisse pas pendre.',
+  p:'Bassin légèrement basculé vers l’arrière, pieds joints, dos toujours collé au dossier.',
+  g:'Monte les genoux vers la poitrine en enroulant le bassin, marque 1 seconde en haut, puis redescends lentement.',
+  t:'Montée 1 à 2 s, pause 1 s, descente 3 s. Souffle en montant.',
+  e:'Se balancer, lâcher les jambes d’un coup, dos qui se décolle, épaules qui montent.',
+  v:'Trop dur ? Plie bien les genoux. Trop facile ? Jambes tendues. Pas de charge : seules les répétitions comptent.',
+  c:'Si ça tire dans le bas du dos, arrête-toi et reste bien collé au dossier.'},
+ 'rear kick fessiers machine':{
+  m:'Fessiers (aussi ischio-jambiers et quadriceps)',
+  s:'Dans les fessiers.',
+  r:'Technogym Pure Strength Rear Kick : machine à disques, debout sur la plateforme, mains sur les poignées. Règle la position avec le disque gradué en haut et les trous de réglage, puis ajoute les disques sur les supports.',
+  p:'Debout, buste droit ou légèrement penché, bassin stable, mains fermes sur les poignées. Une jambe travaille à la fois.',
+  g:'Pousse le coussin vers l’arrière avec la jambe de travail, marque 1 seconde en contractant le fessier, puis reviens lentement.',
+  t:'Poussée 1 s, pause 1 s, retour 2 à 3 s. Souffle en poussant.',
+  e:'Cambrer le bas du dos, balancer le buste, pousser trop vite, charge trop lourde.',
+  v:'Fais autant de séries sur chaque jambe. Commence léger : tu dois sentir le fessier, pas le bas du dos. Note le poids des disques ajoutés.',
+  c:'Garde les deux mains sur les poignées et le dos gainé pendant toute la série.'},
+ 'adducteurs machine':{
+  m:'Intérieur des cuisses (adducteurs)',
+  s:'Sur l’intérieur des cuisses.',
+  r:'Assis, dos contre le dossier, coussins à l’intérieur des genoux. Règle l’écartement de départ avec le levier pour partir jambes écartées sans gêne. Charge avec la tige dans la pile (palier de 2,5 kg).',
+  p:'Dos collé, pieds posés, mains sur les poignées.',
+  g:'Rapproche les jambes sans à-coup, marque 1 seconde quand elles se touchent presque, puis reviens lentement.',
+  t:'Fermeture 1 à 2 s, pause 1 s, retour 3 s. Souffle en fermant.',
+  e:'Élan, écartement de départ trop grand, retour trop rapide.',
+  v:'Charge modérée, 12 à 15 répétitions. Si ça tire à l’aine, réduis l’écartement de départ.',
+  c:'Ne force jamais pour aller plus loin que ton écartement confortable.'},
+ 'extension lombaires banc':{
+  m:'Lombaires, fessiers, arrière des cuisses',
+  s:'Dans le bas du dos et les fessiers.',
+  r:'Banc à lombaires : règle la plateforme pour que tes chevilles soient calées sous les rouleaux et que le coussin soit sous le bas du ventre (à la hauteur des hanches), pas sur les cuisses.',
+  p:'Corps aligné, bras croisés sur la poitrine ou mains aux poignées, regard vers le sol, dos gainé.',
+  g:'Descends lentement en fléchissant les hanches, dos droit, puis remonte jusqu’à l’alignement du corps en contractant les fessiers.',
+  t:'Descente 2 à 3 s, montée 1 à 2 s. Ne cambre pas en haut.',
+  e:'Monter trop haut en cambrant le dos, rebondir en bas, aller trop vite.',
+  v:'Sans charge : seules les répétitions comptent. Trop facile ? Croise les bras, ralentis la descente.',
+  c:'Arrête-toi si tu sens une douleur dans le bas du dos (pas la simple fatigue du muscle). Ne monte jamais plus haut que l’alignement.'},
  'crunch machine':{
   m:'Abdominaux',
   s:'Dans le ventre.',
-  r:'Assis, dos contre le dossier, coussin ou poignées sur le haut de la poitrine. Règle le siège pour que ton nombril soit au niveau de l’axe.',
-  p:'Pieds sous les rouleaux ou au sol, bras relâchés.',
+  r:'Machine Hammer Strength à disques : assis, dos contre le dossier, pieds sous les rouleaux, mains sur les poignées. Ajoute les disques sur les tiges. Règle le siège pour que ton nombril soit au niveau de l’axe.',
+  p:'Pieds calés sous les rouleaux, bras qui tiennent les poignées sans tirer.',
   g:'Enroule le buste vers l’avant en contractant les abdos, puis reviens lentement.',
   t:'Contraction 1 à 2 s, retour 3 s. Souffle en contractant.',
   e:'Tirer avec les bras ou les cuisses, bloquer la respiration, charge trop lourde.'}
 };
 var QUICK={
+ 'extension lombaires banc':['Chevilles calées, coussin sous le bas du ventre','Descends lentement, dos droit','Remonte jusqu’à l’alignement, sans cambrer'],
+ 'rear kick fessiers machine':['Debout sur la plateforme, mains aux poignées','Pousse le coussin vers l’arrière, pause 1 s','Reviens lentement, une jambe après l’autre'],
+ 'adducteurs machine':['Dos collé, coussins à l’intérieur des genoux','Rapproche les jambes sans à-coup','Reviens lentement, sans lâcher'],
+ 'relevé de genoux chaise romaine':['Dos collé, avant-bras sur les coussins','Monte les genoux vers la poitrine','Redescends lentement, sans te balancer'],
  'presse à cuisses':['Dos collé, fessiers au fond du siège','Pieds à largeur d’épaules, au milieu','Descends à 90°, pousse sans verrouiller les genoux'],
  'leg extension':['Genoux au bord du siège, coussin sur le bas des tibias','Tends les jambes, pause 1 s','Redescends lentement, sans élan'],
  'leg curl assis':['Axe de la machine aligné avec les genoux','Ramène les talons sous toi, pause 1 s','Reviens lentement, bassin collé'],
- 'mollets assis machine':['Cuisses sous le coussin, avant des pieds sur la plateforme','Monte sur la pointe, pause 1 s','Redescends lentement, talons bien bas'],
+ 'développé couché smith machine':['Banc au centre, yeux sous la barre','Décroche, descends au bas de la poitrine','Pousse sans verrouiller les coudes'],
+ 'développé décliné machine':['Siège réglé : poignées au bas de la poitrine','Pousse vers l’avant et un peu vers le bas','Reviens lentement, sans lâcher'],
+ 'mollets assis machine':['Genoux sous les coussins, avant des pieds sur la plateforme','Monte sur la pointe, pause 1 s','Redescends lentement, talons bien bas'],
  'mollets à la presse':['Seul l’avant des pieds sur la plateforme','Monte sur la pointe, pause 1 s','Redescends en étirant, genoux presque tendus'],
  'abducteurs machine':['Dos collé, coussins à l’extérieur des genoux','Écarte les jambes, pause 1 s','Reviens lentement, sans claquer les poids'],
  'développé couché machine':['Poignées à hauteur de poitrine, dos collé','Pousse sans verrouiller les coudes','Reviens lentement, épaules basses'],
@@ -699,7 +784,7 @@ var QUICK={
  'rowing machine':['Poitrine contre le coussin, bras tendus','Tire vers toi en serrant les omoplates','Reviens lentement, dos droit'],
  'tirage horizontal poulie':['Dos droit, genoux légèrement fléchis','Tire vers le ventre en serrant les omoplates','Reviens lentement sans te pencher'],
  'curl biceps machine':['Coudes alignés avec l’axe, bras sur le pupitre','Fléchis, serre 1 s','Redescends lentement, sans élan'],
- 'crunch machine':['Dos au dossier, coussin sur la poitrine','Enroule le buste en soufflant','Reviens lentement, sans tirer avec les bras']
+ 'crunch machine':['Dos au dossier, pieds sous les rouleaux','Enroule le buste en soufflant','Reviens lentement, sans tirer avec les bras']
 };
 GUIDE['abducteurs machine']={m:'Fessiers, extérieur des cuisses',s:'Sur le côté des fessiers.',r:'Assieds-toi, dos collé au dossier, coussins à l’extérieur des genoux.',p:'Pieds sur les repose-pieds, genoux à l’intérieur des coussins.',g:'Écarte les jambes sans à-coup, marque 1 seconde, puis reviens lentement.',t:'Écartement 1 à 2 s, retour 3 s. Souffle en écartant.',e:'Élan, bassin qui décolle du siège, retour qui claque.'};
 GUIDE['développé incliné machine']={m:'Haut des pectoraux, épaules, triceps',s:'Dans le haut de la poitrine.',r:'Règle le siège pour que les poignées soient à hauteur du haut de la poitrine. Dos plaqué, pieds au sol.',p:'Mains au milieu des poignées, poignets droits, coudes à environ 45° du corps.',g:'Pousse vers l’avant et un peu vers le haut, puis reviens en 3 secondes.',t:'Poussée 1 à 2 s, retour 3 s. Souffle en poussant.',e:'Dos cambré, épaules qui montent, coudes verrouillés.'};
@@ -731,7 +816,9 @@ var MACH={
  'presse à cuisses':'Leg press : assis ou allongé, un grand plateau pour les pieds que tu pousses.',
  'leg extension':'Assis, un coussin sur le bas des tibias : tu tends les jambes.',
  'leg curl assis':'Assis, un coussin derrière les chevilles : tu ramènes les talons sous le siège.',
- 'mollets assis machine':'Assis, un coussin sur le haut des cuisses, pile de poids : tu montes sur la pointe des pieds.',
+ 'mollets assis machine':'Hammer Strength Seated Calf : assis, genoux sous les coussins, machine à disques (27,2 kg à vide) : tu montes sur la pointe des pieds.',
+ 'développé couché smith machine':'Smith machine Hammer Strength : barre guidée sur rails, banc plat dessous, disques sur la barre.',
+ 'développé décliné machine':'Hammer Strength MTS Decline Press : assis, poignées devant la poitrine, pile de poids (palier de 2,5 kg).',
  'mollets à la presse':'Sur la presse à cuisses : seul l’avant des pieds sur le plateau.',
  'abducteurs machine':'Assis, deux coussins à l’extérieur des genoux : tu écartes les jambes.',
  'développé couché machine':'Hammer Strength Chest Press : machine guidée à disques, deux bras indépendants, banc ou siège, poignées devant la poitrine. Note le poids TOTAL chargé (disques des deux côtés ensemble).',
@@ -744,7 +831,11 @@ var MACH={
  'rowing machine':'Seated row : poitrine contre un coussin, tu tires les poignées vers toi.',
  'tirage horizontal poulie':'Poulie basse : assis, pieds sur les cales, poignée triangle.',
  'curl biceps machine':'Curl pupitre : bras posés sur un pupitre incliné, tu fléchis les coudes.',
- 'crunch machine':'Ab crunch : assis, tu enroules le buste vers l’avant.'
+ 'extension lombaires banc':'Banc à lombaires : chevilles sous les rouleaux, coussin sous le bas du ventre, tu descends et remontes le buste.',
+ 'crunch machine':'Hammer Strength Ab crunch : assis, pieds sous les rouleaux, machine à disques : tu enroules le buste vers l’avant.',
+ 'rear kick fessiers machine':'Technogym Pure Strength Rear Kick : debout sur une plateforme, un coussin que tu pousses vers l’arrière, machine à disques.',
+ 'adducteurs machine':'Hammer Strength Adduction des hanches : assis, coussins à l’intérieur des genoux, pile de poids.',
+ 'relevé de genoux chaise romaine':'Chaise romaine : dos au dossier, avant-bras sur des coussins, jambes dans le vide.'
 };
 function howHtml(name,open){
   var key=norm(name), g=GUIDE[key], q=QUICK[key];
@@ -798,7 +889,8 @@ function updateKcal(){
   if(b) b.textContent='muscu '+t.g+' + '+t.label+' '+t.t;
   var c=$('#netK'); if(c) c.textContent='dont ≈ '+t.net+' kcal en plus du repos';
 }
-var PLATE={'développé couché machine':1,'développé incliné machine':1,'développé épaules machine':1};
+var BW={'relevé de genoux chaise romaine':1,'extension lombaires banc':1};
+var PLATE={'crunch machine':1,'développé couché smith machine':1,'mollets assis machine':1,'presse à cuisses':1,'développé couché machine':1,'développé incliné machine':1,'développé épaules machine':1};
 function platesTxt(total){
   var side=Math.round(total/2*100)/100, rest=side, out=[], P=[20,10,5,2.5,1.25];
   if(!(side>0)) return '';
@@ -860,7 +952,12 @@ function viewDraft(){
   d.ex.forEach(function(e,i){
     var done=e.sets.filter(function(s){return s.done;}).length, testDone=e.sets[0]&&e.sets[0].done;
     h+='<div class="card'+(done>0&&done===e.sets.length?' okc':'')+'"><div class="row between"><span class="exh"><span class="ei">'+eIc(e.name)+'</span><span class="en">'+esc(e.name)+'</span></span><span class="pill">'+esc(e.target)+'</span></div>';
-    if(e.info){
+    if(BW[norm(e.name)]){
+      var rgb=String(e.target).match(/\u00d7\s*(\d+)(?:-(\d+))?/)||[], mnb=+rgb[1]||10, mxb=+rgb[2]||mnb;
+      if(e.info){ var lob=Math.min.apply(null,e.info.sets.map(function(x){return x.r;}));
+        h+='<p class="hint">Dernière fois : '+e.info.sets.map(function(x){return x.r;}).join(', ')+' reps</p><div class="tip">🎯 <b>Aujourd’hui :</b> vise <b>'+Math.min(mxb,Math.max(mnb,lob+1))+' reps</b> sur chaque série.<div class="muted small" style="margin-top:4px">Pas de charge : laisse « kg » vide. À '+mxb+' reps partout, ralentis la descente (3 s).</div></div>'; }
+      else h+='<div class="tip">💪 Poids du corps : laisse « kg » vide et compte tes répétitions ('+mnb+' à '+mxb+').</div>';
+    } else if(e.info){
       var txt=e.info.sets.map(function(s){return fmt(s.w)+'×'+s.r;}).join(', ');
       var rg3=String(e.target).match(/\u00d7\s*(\d+)(?:-(\d+))?/)||[], mn3=+rg3[1]||0, mx3=+rg3[2]||mn3, lo=Math.min.apply(null,e.info.sets.map(function(x){return x.r;})), goal;
       if(e.info.bump) goal='Monte à <b>'+fmt(e.info.suggW)+' kg</b> et vise <b>'+mn3+' reps</b> sur chaque série.';
@@ -1134,7 +1231,7 @@ function sIc(n){n=String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-
 function eIc(n){n=String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   if(/presse|leg |mollet|abducteur|adducteur|squat|cuisse|fessier/.test(n)) return '🦵';
   if(/crunch|abdo|gainage/.test(n)) return '🔥';
-  if(/tirage|rowing|dos|traction/.test(n)) return '🧗';
+  if(/tirage|rowing|dos|traction|lombaire/.test(n)) return '🧗';
   if(/epaule|elevation|oiseau/.test(n)) return '🏔️';
   if(/developpe|pec|pompe/.test(n)) return '💪';
   if(/curl|biceps|triceps/.test(n)) return '💪';
@@ -1374,7 +1471,7 @@ function startSession(day){
   S.draft={day:day,soft:soft,deload:deload,calib:S.phase==='calib',start:new Date().toISOString(),ex:p.ex.map(function(e){
     var info=lastInfo(e.name,e.reps), n=Math.max(1,parseInt(e.sets,10)||3), sets=[]; if(soft||deload) n=Math.max(2,n-1);
     var w0=info?(deload?Math.max(2.5,Math.round(info.suggW*0.9/2.5)*2.5):info.suggW):'';
-    for(var i=0;i<n;i++) sets.push({w:info?String(w0).replace('.',','):'',r:'',done:false});
+    for(var i=0;i<n;i++) sets.push({w:(info&&w0>0)?String(w0).replace('.',','):'',r:'',done:false});
     return {name:e.name,target:e.sets+'×'+e.reps,info:info,sets:sets};
   }),tm:{min:S.cardioMin||30,kcal:'',type:S.tm.type||'tapis'},gym:''};
   save(); render(); window.scrollTo(0,0);
@@ -1431,7 +1528,7 @@ document.addEventListener('click',function(ev){
       applyAvail(S.program);
       var rps=String(E3.target).split('×')[1]||'8-12', inf=lastInfo(nn2,rps);
       E3.name=nn2; E3.info=inf; E3.rated=false; E3.advice='';
-      E3.sets.forEach(function(x){if(!x.done){x.w=inf?String(inf.suggW).replace('.',','):'';}});
+      E3.sets.forEach(function(x){if(!x.done){x.w=(inf&&inf.suggW>0)?String(inf.suggW).replace('.',','):'';}});
       save();render();toast('Remplacée par : '+nn2);
     }
   }
@@ -1450,7 +1547,7 @@ document.addEventListener('click',function(ev){
       var ci=-1; vl.forEach(function(v,ix){if(norm(v)===norm(E4.name)) ci=ix;});
       var nn3=vl[(ci+1)%vl.length], rps3=String(E4.target).split('×')[1]||'8-12', inf3=lastInfo(nn3,rps3);
       E4.name=nn3; E4.info=inf3; E4.rated=false; E4.advice='';
-      E4.sets.forEach(function(x){x.w=inf3?String(inf3.suggW).replace('.',','):'';});
+      E4.sets.forEach(function(x){x.w=(inf3&&inf3.suggW>0)?String(inf3.suggW).replace('.',','):'';});
       save();render();toast('Exercice changé : '+nn3+' — touche encore 🔄 pour voir une autre option.');
     }
   }
@@ -1468,7 +1565,7 @@ document.addEventListener('click',function(ev){
     var allDone=E2.sets.every(function(x){return x.done;}), lastEx=(i===S.draft.ex.length-1);
     save(); render();
     if(s.done){
-      if(allDone){ if(lastEx){restEnd=0;cancelBeep();updateRest();} else startRest(S.rest2||120,'Repos entre exercices'); }
+      if(allDone){ startRest(S.rest2||120,lastEx?'Récup avant le cardio':'Repos entre exercices'); }
       else startRest(S.rest1||60,'Repos entre séries');
     }
   }
