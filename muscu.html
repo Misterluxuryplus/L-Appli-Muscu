@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#f4f5f8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Appli Muscu">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -231,7 +231,7 @@ function defaultProgram(){
   return buildProgram(pr.goal||'both',pr.level||'novice',nd);
 }
 function defaultState(){
-  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'dark',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},reviewSeen:'',deloadWeek:'',deloadAsked:'',renewAsked:'',profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
+  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'light',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},reviewSeen:'',deloadWeek:'',deloadAsked:'',renewAsked:'',profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
 }
 var SEED_ROWS=[];
 function ensureSeed(){
