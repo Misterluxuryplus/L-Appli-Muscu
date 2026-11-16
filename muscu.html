@@ -26,6 +26,11 @@ html[data-theme="light"]{
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px}
 body{padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 150px);max-width:640px;margin:0 auto}
+details.sec>summary{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;font-weight:700;font-size:17px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow)}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::after{content:'▾';color:var(--muted)}
+details.sec[open]>summary::after{content:'▴'}
+details.sec[open]>summary{margin-bottom:10px}
 body.resting{padding-bottom:calc(env(safe-area-inset-bottom) + 270px)}
 header{display:flex;align-items:center;justify-content:space-between;margin:4px 0 14px}
 #sync{display:none}
@@ -226,7 +231,7 @@ function defaultProgram(){
   return buildProgram(pr.goal||'both',pr.level||'novice',nd);
 }
 function defaultState(){
-  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'dark',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
+  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'dark',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},reviewSeen:'',deloadWeek:'',deloadAsked:'',renewAsked:'',profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
 }
 var SEED_ROWS=[];
 function ensureSeed(){
@@ -513,6 +518,7 @@ function viewToday(){
   var doneTk=tk&&agoTxt(lastTime(tk))==='aujourd’hui', nd=calib?(nextCalibKey()||nextDay()):((tk&&S.program[tk]&&!doneTk)?tk:nextDay()), p=S.program[nd];
   if(!p) return h;
   var pi=planInfo(), cm=coachMsg(), top;
+  if(!calib){ h+=reviewCard()+cycleCard(pi); }
   if(calib){
     var c=calibStats();
     top='<div class="row between small"><span class="muted">🔎 Phase test</span><span class="muted">'+c.done+' / '+c.total+' machines</span></div><div class="bar"><i style="width:'+(c.total?Math.round(c.done/c.total*100):0)+'%"></i></div>';
@@ -523,7 +529,7 @@ function viewToday(){
   h+='<div class="card hl" style="border-left:6px solid '+sCol(p.name)+'">'+top+'<div class="b" style="font-size:22px;margin:14px 0 4px">'+sIc(p.name)+esc(p.name)+(!calib&&tk===nd?' <span class="pill">aujourd’hui</span>':'')+'</div>'+
      '<p class="small muted" style="margin:0 0 4px">Dernière fois : '+agoTxt(lastTime(nd))+'</p>'+
      '<p class="small muted" style="margin:0 0 8px">'+p.ex.map(function(e){return esc(e.name);}).join(' · ')+'</p>'+
-     '<p class="small" style="margin:0 0 12px">'+cm.x+'</p>'+(calib?'':coverHtml(p))+'<div style="height:10px"></div>'+
+     (calib?'<p class="small" style="margin:0 0 12px">'+cm.x+'</p>':'<div class="tip" style="margin:6px 0 10px">'+coachFocus(p)+'<div class="muted" style="margin-top:6px">'+cm.x+'</div></div>'+coverHtml(p))+'<div style="height:10px"></div>'+
      '<button class="primary full" style="padding:16px;font-size:19px;min-height:58px" data-act="start" data-day="'+nd+'">'+(calib?'Commencer le test':'Commencer la séance')+'</button></div>';
   var others=progKeys().filter(function(k){return k!==nd;});
   if(others.length){
@@ -801,7 +807,7 @@ function extraHint(e){
   var rg=String(e.target).match(/\u00d7\s*(\d+)(?:-(\d+))?/)||[], mn=+rg[1]||0, mx=+rg[2]||mn;
   if(h.length>=3){
     var b=h.slice(-3).map(function(sets){return Math.max.apply(null,sets.map(function(x){return e1rm(x.w,x.r);}));});
-    if(b[2]<=b[0]&&b[1]<=b[0]) return '<p class="tip">⏸ Ça stagne depuis 3 séances : fais cette fois une séance allégée à '+fmt(Math.max(2.5,Math.round(e.info.top*0.9/2.5)*2.5))+' kg (−10 %), puis repars.</p>';
+    if(b[2]<=b[0]&&b[1]<=b[0]) return '<p class="tip">⏸ Ça stagne depuis 3 séances : fais cette fois une séance allégée à '+fmt(Math.max(2.5,Math.round(e.info.top*0.9/2.5)*2.5))+' kg (−10 %), puis repars. Si ça stagne encore, change d’exercice avec 🔄 et soigne ton sommeil.</p>';
   }
   var mid=(mn+mx)/2, ok=h.slice(-2).every(function(sets){return sets.length>=3&&sets.every(function(x){return x.r>=mid;});});
   if(ok&&e.sets.length<=3&&S.profile.level!=='novice') return '<p class="tip">💡 Tu progresses bien : tu peux ajouter une 4e série (bouton + Série).</p>';
@@ -831,7 +837,7 @@ function viewDraft(){
   var d=S.draft, p=S.program[d.day]||{name:d.day,note:''};
   if(!d.tm){d.tm={min:S.cardioMin||30,kcal:'',type:S.tm.type||'tapis'};d.gym='';}
   var h='<div class="card hl" style="border-left:6px solid '+sCol(p.name)+'"><div class="row between"><span class="b" style="font-size:20px">'+sIc(p.name)+esc(p.name)+(d.calib?' · découverte':'')+'</span><button class="sm danger ghost" data-act="cancel">'+(armed==='cancel'?'Confirmer ?':'Annuler')+'</button></div>'+
-        (d.calib?'<p class="small" style="margin:6px 0 0">🔎 On trouve tes charges : pas de performance à viser.</p>':(d.soft?'<p class="small" style="margin:6px 0 0">🌱 Semaine 1 : 2 séries, charges légères.</p>':''))+'</div>';
+        (d.calib?'<p class="small" style="margin:6px 0 0">🔎 On trouve tes charges : pas de performance à viser.</p>':(d.soft?'<p class="small" style="margin:6px 0 0">🌱 Semaine 1 : 2 séries, charges légères.</p>':(d.deload?'<p class="small" style="margin:6px 0 0">🌱 Semaine allégée : une série en moins, charges à −10 %. Récupère bien.</p>':'')))+'</div>';
   var inj=(S.profile.injuries||'').trim();
   if(inj) h+='<div class="card small" style="border-color:var(--bad)">⚠️ '+esc(inj)+'</div>';
   d.ex.forEach(function(e,i){
@@ -843,7 +849,8 @@ function viewDraft(){
       if(e.info.bump) goal='Monte à <b>'+fmt(e.info.suggW)+' kg</b> et vise <b>'+mn3+' reps</b> sur chaque série.';
       else if(e.info.down) goal='Baisse à <b>'+fmt(e.info.suggW)+' kg</b> et vise <b>'+mn3+' reps</b> sur chaque série.';
       else goal='Garde <b>'+fmt(e.info.suggW)+' kg</b> et vise <b>'+Math.min(mx3,Math.max(mn3,lo+1))+' reps</b> sur chaque série.';
-      h+='<p class="hint">Dernière fois : '+txt+'</p><div class="tip">🎯 <b>Aujourd’hui :</b> '+goal+(!e.info.bump&&!e.info.down?'<div class="muted small" style="margin-top:4px">Dès que tu fais '+mx3+' reps partout, tu montes de 2,5 kg.</div>':'')+'</div>';
+      if(d.deload){ var dw0=e.sets[0]?e.sets[0].w:''; h+='<p class="hint">Dernière fois : '+txt+'</p><div class="tip">🌱 <b>Aujourd’hui (semaine allégée) :</b> prends environ <b>'+esc(String(dw0))+' kg</b> et fais '+mn3+' à '+mx3+' reps tranquilles, sans aller à l’échec.</div>'; }
+      else h+='<p class="hint">Dernière fois : '+txt+'</p><div class="tip">🎯 <b>Aujourd’hui :</b> '+goal+(!e.info.bump&&!e.info.down?'<div class="muted small" style="margin-top:4px">Dès que tu fais '+mx3+' reps partout, tu montes de 2,5 kg.</div>':'')+'</div>';
     } else {
       var rg2=String(e.target).match(/\u00d7\s*(\d+)(?:-(\d+))?/)||[];
       var lo2=rg2[1]||8, hi2=rg2[2]||rg2[1]||12, rngT=(lo2===hi2)?'environ <b>'+lo2+' reps</b>':'<b>'+lo2+' à '+hi2+' reps</b>';
@@ -874,15 +881,18 @@ function viewDraft(){
 function viewProg(){
   var pr=S.profile, pl=S.plan;
   var h='<div class="card"><h2 style="margin-top:0">Mon profil</h2><label class="f">Prénom</label><input data-pr="name" value="'+esc(pr.name)+'" placeholder="Ton prénom">'+
-    '<div class="two" style="margin-top:10px"><div><label class="f">Objectif</label><select data-prs="goal">'+[['both','Perdre du poids et me muscler'],['lose','Perdre du poids'],['muscle','Me muscler']].map(function(o){return '<option value="'+o[0]+'"'+(pr.goal===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'+
+    '<div class="two" style="margin-top:10px;grid-template-columns:1fr"><div><label class="f">Objectif</label><select data-prs="goal">'+[['both','Perdre du poids et me muscler'],['lose','Perdre du poids'],['muscle','Me muscler']].map(function(o){return '<option value="'+o[0]+'"'+(pr.goal===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'+
     '<div><label class="f">Niveau</label><select data-prs="level">'+[['novice','Débutant'],['inter','Intermédiaire'],['adv','Avancé']].map(function(o){return '<option value="'+o[0]+'"'+(pr.level===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div></div>'+
     '<p class="small muted" style="margin:10px 0 0">'+({lose:'Perdre du poids : charges légères, 12 à 15 répétitions, 30 min de cardio.',both:'Perdre du poids et me muscler : charges moyennes, 10 à 12 répétitions, 30 min de cardio. Tu perds du gras en gardant ton muscle.',muscle:'Me muscler : charges plus lourdes, 8 à 12 répétitions, 15 min de cardio.'}[pr.goal||'both'])+'</p>'+
     '<div class="two" style="margin-top:10px"><div><label class="f">Taille (cm)</label><input inputmode="numeric" data-pr="height" value="'+esc(pr.height||'')+'"></div><div><label class="f">Précautions / douleurs</label><input data-pr="injuries" value="'+esc(pr.injuries||'')+'" placeholder="ex. genou"></div></div>'+
     '<button class="sm ghost" style="margin-top:12px" data-act="redoIntro">Revoir la présentation</button></div>';
   h+='<div class="card"><h2 style="margin-top:0">Apparence</h2><div class="seg"><button class="'+(S.theme==='light'?'':'on')+'" data-act="theme" data-v="dark">🌙 Sombre</button><button class="'+(S.theme==='light'?'on':'')+'" data-act="theme" data-v="light">☀️ Clair</button></div></div>';
-  h+='<div class="card"><h2 style="margin-top:0">Mes machines</h2><p class="small muted" style="margin:0 0 10px">Touche celles que ta salle n’a pas : je les remplace automatiquement.</p><div class="seg">'+Object.keys(ALT).map(function(k){var off=!!nmach()[k], nm0=k.charAt(0).toUpperCase()+k.slice(1);return '<button class="sm'+(off?' danger':'')+'" data-act="machToggle" data-k="'+esc(k)+'">'+(off?'✗ ':'✓ ')+esc(nm0)+'</button>';}).join('')+'</div></div>';
+  h+='<details class="sec" data-sec="mach"'+(openSec.mach?' open':'')+'><summary>🛠️ Mes machines</summary>';
+  h+='<div class="card"><p class="small muted" style="margin:0 0 10px">Touche celles que ta salle n’a pas : je les remplace automatiquement.</p><div class="seg">'+Object.keys(ALT).map(function(k){var off=!!nmach()[k], nm0=k.charAt(0).toUpperCase()+k.slice(1);return '<button class="sm'+(off?' danger':'')+'" data-act="machToggle" data-k="'+esc(k)+'">'+(off?'✗ ':'✓ ')+esc(nm0)+'</button>';}).join('')+'</div></div>';
+  h+='</details>';
   h+='<div class="card"><h2 style="margin-top:0">Repos</h2><div class="two"><div><label class="f">Entre les séries</label><select data-rs="rest1">'+[30,45,60,90,120].map(function(n){return '<option value="'+n+'"'+((S.rest1||60)===n?' selected':'')+'>'+restTxt(n)+'</option>';}).join('')+'</select></div><div><label class="f">Entre les exercices</label><select data-rs="rest2">'+[90,120,150,180].map(function(n){return '<option value="'+n+'"'+((S.rest2||120)===n?' selected':'')+'>'+restTxt(n)+'</option>';}).join('')+'</select></div></div></div>';
-  h+='<div class="card"><h2 style="margin-top:0">Mon programme</h2><div class="two"><div><label class="f">Durée</label><select data-pls="weeks">'+[4,8,12,16].map(function(n){return '<option value="'+n+'"'+(pl.weeks===n?' selected':'')+'>'+n+' semaines</option>';}).join('')+'</select></div>'+
+  h+='<details class="sec" data-sec="prog"'+(openSec.prog?' open':'')+'><summary>📋 Mon programme</summary>';
+  h+='<div class="card"><h2 style="margin-top:0">Durée et jours</h2><div class="two"><div><label class="f">Durée</label><select data-pls="weeks">'+[4,8,12,16].map(function(n){return '<option value="'+n+'"'+(pl.weeks===n?' selected':'')+'>'+n+' semaines</option>';}).join('')+'</select></div>'+
     (S.phase==='calib'?'':'<div><label class="f">Début</label><input type="date" data-pls="start" value="'+esc(pl.start)+'"></div>')+'</div>'+
     '<label class="f" style="margin-top:12px">Jours d’entraînement</label><div class="seg">'+DOW.map(function(n,i){return '<button class="sm'+((pl.days||[]).indexOf(i)>=0?' on':'')+'" data-act="pday" data-d="'+i+'">'+n+'</button>';}).join('')+'</div>'+
     '</div>';
@@ -899,15 +909,14 @@ function viewProg(){
     h+='<button class="sm ghost" data-act="progAdd" data-day="'+k+'">+ Ajouter un exercice</button>'+
        '<label class="f" style="margin-top:12px">Note de séance (cardio, échauffement…)</label><input data-pd="'+k+'" data-pf="note" value="'+esc(p.note)+'"></div>';
   });
-  h+='<button class="ghost danger full" data-act="progReset">'+(armed==='progReset'?'Confirmer le nouveau programme ?':'Proposer un nouveau programme selon mon profil')+'</button>';
-  if(S.phase==='calib') h+='<button class="ghost full" data-act="skipCalib" style="margin-top:8px">'+(armed==='skipCalib'?'Confirmer ?':'Passer la phase de test (je connais mes charges)')+'</button>';
-  h+='<div class="card" style="margin-top:14px"><h2 style="margin-top:0">Sauvegarde</h2><p class="small muted" style="margin:0 0 10px">Dernière sauvegarde : <b style="color:var(--text)">'+bkAgo()+'</b>. Envoie-la par mail, WhatsApp ou dans tes notes : si tu changes de téléphone, tu retrouves tout.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-act="backupNow">Envoyer ma sauvegarde</button><button class="sm" data-act="expShow">'+(showExp?'Masquer le texte':'Afficher le texte')+'</button></div>'+
+  h+='<button class="ghost danger full" data-act="progReset">'+(armed==='progReset'?'Confirmer le nouveau programme ?':'Proposer un nouveau programme selon mon profil')+'</button></details>';
+  h+='<details class="sec" data-sec="bk"'+(openSec.bk?' open':'')+' style="margin-top:14px"><summary>💾 Sauvegarde</summary><div class="card"><p class="small muted" style="margin:0 0 10px">Dernière sauvegarde : <b style="color:var(--text)">'+bkAgo()+'</b>. Envoie-la par mail, WhatsApp ou dans tes notes : si tu changes de téléphone, tu retrouves tout.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-act="backupNow">Envoyer ma sauvegarde</button><button class="sm" data-act="expShow">'+(showExp?'Masquer le texte':'Afficher le texte')+'</button></div>'+
      (showExp?'<textarea readonly style="width:100%;height:90px;margin-top:10px;font-size:11px">'+esc(JSON.stringify(S))+'</textarea>':'')+
-     '<label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain"><label class="f" style="margin-top:12px">Ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer</button></div>';
-  h+='<div class="card" style="margin-top:14px"><h2 style="margin-top:0">Version test ?</h2><p class="small muted" style="line-height:1.5">Efface tes séances d’essai pour repartir de zéro. Ton profil, tes pesées et tes bilans InBody sont conservés.</p>'+
+     '<label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain"><label class="f" style="margin-top:12px">Ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer</button></div></details>';
+  h+='<details class="card" style="margin-top:14px"><summary class="b" style="cursor:pointer">Effacer mes données</summary><p class="small muted" style="line-height:1.5;margin-top:10px">Efface tes séances pour repartir de zéro. Ton profil, tes pesées et tes bilans InBody sont conservés.</p>'+
      '<button class="ghost danger full" data-act="resetSessions">'+(armed==='resetSessions'?'Confirmer l’effacement ?':'Effacer mes séances et recommencer')+'</button>'+
      '<p class="small muted" style="line-height:1.5;margin:14px 0 8px">Ou tout remettre à zéro : retour à la présentation. Tout est effacé de cet appareil (profil, séances, pesées).</p>'+
-     '<button class="ghost danger full" data-act="resetAll">'+(armed==='resetAll'?'Confirmer la remise à zéro ?':'Tout réinitialiser')+'</button></div>';
+     '<button class="ghost danger full" data-act="resetAll">'+(armed==='resetAll'?'Confirmer la remise à zéro ?':'Tout réinitialiser')+'</button></details>';
   return h;
 }
 function exerciseNames(){
@@ -918,7 +927,7 @@ function exerciseNames(){
 
 /* ---------- planning ---------- */
 var DOW=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-var calOff=0, calMove=null, calAdd=null, calAct=null, obStep=0, obW=null;
+var openSec={}, calOff=0, calMove=null, calAdd=null, calAct=null, obStep=0, obW=null;
 function parseYmd(x){return new Date(x+'T12:00:00');}
 function addDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
 function weekStartOf(d){var x=new Date(d.getTime());x.setHours(12,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
@@ -1025,6 +1034,48 @@ function maybeFinishCalib(){
   var c=calibStats();
   if(c.total&&c.done>=c.total){S.phase='prog';S.plan.start=ymd(addDays(new Date(),1));S.moves={};S.over={};return true;}
   return false;
+}
+function coachFocus(p){
+  var e0=p&&p.ex&&p.ex[0]; if(!e0) return '';
+  var info=lastInfo(e0.name,e0.reps);
+  if(info) return '🎯 <b>Objectif du jour</b> : '+esc(e0.name)+', '+e0.sets+'×'+e0.reps+' avec <b>'+fmt(info.suggW)+' kg</b>. Bats ta dernière séance.';
+  return '🎯 <b>Objectif du jour</b> : sur '+esc(e0.name)+', trouve la charge avec laquelle tu fais <b>'+e0.reps+' répétitions</b>.';
+}
+function weightBefore(t){
+  var best=null,bt=-1;
+  (S.body||[]).concat(S.comp||[]).forEach(function(e){ if(!e||e.w==null) return; var d=new Date(e.date+'T12:00:00').getTime(); if(d<t&&d>bt){bt=d;best=+e.w;} });
+  return best;
+}
+function reviewCard(){
+  if(!S.sessions.length||S.phase==='calib') return '';
+  var cws=weekStart(), pws=addDays(cws,-7), a=pws.getTime(), b=cws.getTime(), key=ymd(pws);
+  if(S.reviewSeen===key) return '';
+  var firstT=Math.min.apply(null,S.sessions.map(function(x){return new Date(x.date).getTime();}));
+  if(firstT>=b) return '';
+  var ss=S.sessions.filter(function(x){var t=new Date(x.date).getTime();return t>=a&&t<b;});
+  var ac=(S.acts||[]).filter(function(x){var t=new Date(x.date+'T12:00:00').getTime();return t>=a&&t<b;});
+  var kc=0,pr=0,cov={}; ss.forEach(function(x){kc+=x.kcal||0;pr+=(x.prs||[]).length;var m=muscles(S.program[x.day]?S.program[x.day].name:x.day);for(var q in m)cov[q]=1;});
+  ac.forEach(function(x){kc+=actKcal(x);});
+  var w1=weightBefore(b), w0=weightBefore(a), dw=(w1!=null&&w0!=null)?Math.round((w1-w0)*10)/10:null;
+  var miss=Object.keys(MLAB).filter(function(q){return !cov[q];}), n=ss.length, goal=S.perWeek||3, adv;
+  if(!n) adv='Semaine sans séance : ce n’est pas grave. Cette semaine, reprends par <b>'+esc(S.program[nextDay()]?S.program[nextDay()].name:'ta séance')+'</b> et bloque tes créneaux dans le Planning.';
+  else if(miss.length) adv='Il manquait : <b>'+miss.map(function(q){return MLAB[q];}).join(', ')+'</b>. Commence cette semaine par ces muscles.';
+  else if(n<goal) adv='Tu as fait '+n+' séance'+(n>1?'s':'')+' sur '+goal+'. Essaie de bloquer tes créneaux dans le Planning pour tenir l’objectif.';
+  else adv='Objectif tenu 💪 Cette semaine, vise 1 répétition de plus sur tes exercices principaux.';
+  if(pr>0) adv='🏆 '+pr+' record'+(pr>1?'s':'')+' battu'+(pr>1?'s':'')+' ! '+adv;
+  function st(v,l){return '<div class="stat"><div class="v">'+v+'</div><div class="muted small">'+l+'</div></div>';}
+  var e2=addDays(cws,-1);
+  return '<div class="card" style="border-color:var(--accent)"><div class="b" style="font-size:18px">📊 Bilan de ta semaine</div><div class="small muted" style="margin:2px 0 10px">du '+fmtDate(ymd(pws))+' au '+fmtDate(ymd(e2))+'</div>'+
+    '<div class="grid3">'+st(n+'/'+goal,'séances')+st(Math.round(kc)||'–','kcal')+st(dw==null?'–':(dw>0?'+':'')+String(dw).replace('.',','),'kg')+'</div>'+
+    '<p class="small" style="margin:12px 0 10px;line-height:1.5">'+adv+'</p><button class="sm primary" data-act="reviewOk">OK, c’est noté</button></div>';
+}
+function cycleCard(pi){
+  if(S.phase==='calib'||pi.weeks<6||pi.wk<4||pi.wk>pi.weeks) return '';
+  var wkKey=ymd(weekStart());
+  if(S.deloadWeek===wkKey) return '<div class="card" style="border-color:var(--good)"><div class="b">🌱 Semaine allégée en cours</div><p class="small muted" style="margin:4px 0 0">Une série en moins et des charges à −10 % : tu récupères pour mieux repartir.</p></div>';
+  if(pi.wk%6===0 && S.deloadAsked!==wkKey) return '<div class="card" style="border-color:var(--good)"><div class="b">🌱 Semaine '+pi.wk+' : semaine allégée conseillée</div><p class="small muted" style="margin:4px 0 8px">Après 5 semaines, ton corps a besoin de récupérer pour continuer à progresser. Cette semaine : une série en moins et des charges à −10 %.</p><div class="row" style="gap:8px"><button class="sm primary" data-act="deloadOn">Activer</button><button class="sm ghost" data-act="deloadSkip">Plus tard</button></div></div>';
+  if(pi.wk%6===1 && pi.wk>1 && S.renewAsked!==wkKey) return '<div class="card" style="border-color:var(--accent)"><div class="b">🔄 Nouveau cycle : change tes exercices</div><p class="small muted" style="margin:4px 0 8px">Changer de variante tous les mois relance les progrès. Je remplace chaque exercice par une variante du même muscle (tu retrouveras ta charge en séance).</p><div class="row" style="gap:8px"><button class="sm primary" data-act="renewEx">Renouveler</button><button class="sm ghost" data-act="renewSkip">Garder</button></div></div>';
+  return '';
 }
 function coachMsg(){
   var pi=planInfo(), n=S.sessions.length;
@@ -1195,9 +1246,9 @@ function viewProgress(){
     });
   });
   h+='<div class="card" style="margin-top:12px"><label class="f">Exercice</label><select data-sel="1">'+names.map(function(n){return '<option value="'+esc(n)+'"'+(n===sel?' selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>'+
-     '<h2 style="margin-top:14px">'+(anyW?'1RM estimé par séance (kg)':'Reps max par séance')+'</h2>'+chart(pts,anyW?'kg':'reps')+'</div>';
+     '<h2 style="margin-top:14px">'+(anyW?'Ta progression (charge max estimée, kg)':'Reps max par séance')+'</h2>'+chart(pts,anyW?'kg':'reps')+'</div>';
   h+='<div class="grid3"><div class="stat"><div class="v">'+(bestW>0?fmt(bestW)+' kg':'—')+'</div><div class="l">charge max ('+bestWr+' reps)</div></div>'+
-     '<div class="stat"><div class="v">'+(bestE>0?fmt(bestE):'—')+'</div><div class="l">meilleur 1RM estimé</div></div>'+
+     '<div class="stat"><div class="v">'+(bestE>0?fmt(bestE):'—')+'</div><div class="l">meilleure charge max estimée</div></div>'+
      '<div class="stat"><div class="v">'+hist.length+'</div><div class="l">fois réalisé</div></div></div>';
   h+='<h2>Historique</h2>';
   hist.slice(-6).reverse().forEach(function(x){
@@ -1303,10 +1354,11 @@ function render(){
 /* ---------- actions ---------- */
 function startSession(day){
   var p=S.program[day]; if(!p) return;
-  tab='today'; var soft=false;
-  S.draft={day:day,soft:soft,calib:S.phase==='calib',start:new Date().toISOString(),ex:p.ex.map(function(e){
-    var info=lastInfo(e.name,e.reps), n=Math.max(1,parseInt(e.sets,10)||3), sets=[]; if(soft) n=Math.max(2,n-1);
-    for(var i=0;i<n;i++) sets.push({w:info?String(info.suggW).replace('.',','):'',r:'',done:false});
+  tab='today'; var soft=false, deload=(S.deloadWeek===ymd(weekStart()));
+  S.draft={day:day,soft:soft,deload:deload,calib:S.phase==='calib',start:new Date().toISOString(),ex:p.ex.map(function(e){
+    var info=lastInfo(e.name,e.reps), n=Math.max(1,parseInt(e.sets,10)||3), sets=[]; if(soft||deload) n=Math.max(2,n-1);
+    var w0=info?(deload?Math.max(2.5,Math.round(info.suggW*0.9/2.5)*2.5):info.suggW):'';
+    for(var i=0;i<n;i++) sets.push({w:info?String(w0).replace('.',','):'',r:'',done:false});
     return {name:e.name,target:e.sets+'×'+e.reps,info:info,sets:sets};
   }),tm:{min:S.cardioMin||30,kcal:'',type:S.tm.type||'tapis'},gym:''};
   save(); render(); window.scrollTo(0,0);
@@ -1333,7 +1385,7 @@ function finishSession(){
   var tt=d.tm?totals(d):{wt:curWeight()||100,g:0,t:0,total:0};
   var vol=0, pvol=0; logs.forEach(function(l){l.sets.forEach(function(x){vol+=x.w*x.r;});});
   for(var qi=S.sessions.length-1;qi>=0;qi--){ if(S.sessions[qi].day===d.day){ S.sessions[qi].logs.forEach(function(l){l.sets.forEach(function(x){pvol+=x.w*x.r;});}); break; } }
-  S.sessions.push({id:uid(),date:d.start,day:d.day,logs:logs,kcal:tt.total,kcalGym:tt.g,kcalTm:tt.t,cardio:d.tm?d.tm.type:'tapis'});
+  S.sessions.push({id:uid(),date:d.start,day:d.day,logs:logs,kcal:tt.total,kcalGym:tt.g,kcalTm:tt.t,cardio:d.tm?d.tm.type:'tapis',prs:prs});
   if(d.tm){S.tm.type=d.tm.type||'tapis';}
   var celeb=maybeFinishCalib(), cn='';
   if(celeb) cn='🎉 Toutes tes charges sont trouvées ! Ton programme de '+S.plan.weeks+' semaines démarre le '+fmtDate(S.plan.start);
@@ -1344,6 +1396,7 @@ function finishSession(){
   toast(prs.length?'Séance enregistrée 💪 Record : '+prs.slice(0,2).join(', '):'Séance enregistrée 💪 Bien joué !');
 }
 
+document.addEventListener('toggle',function(ev){var d=ev.target;if(d&&d.dataset&&d.dataset.sec) openSec[d.dataset.sec]=d.open;},true);
 document.addEventListener('click',function(ev){
   var t=ev.target.closest('[data-act]'); if(!t) return;
   if(t.tagName==='A') ev.preventDefault();
@@ -1365,6 +1418,15 @@ document.addEventListener('click',function(ev){
       E3.sets.forEach(function(x){if(!x.done){x.w=inf?String(inf.suggW).replace('.',','):'';}});
       save();render();toast('Remplacée par : '+nn2);
     }
+  }
+  else if(a==='reviewOk'){S.reviewSeen=ymd(addDays(weekStart(),-7));save();render();}
+  else if(a==='deloadOn'){S.deloadWeek=ymd(weekStart());save();render();toast('Semaine allégée activée 🌱');}
+  else if(a==='deloadSkip'){S.deloadAsked=ymd(weekStart());save();render();}
+  else if(a==='renewSkip'){S.renewAsked=ymd(weekStart());save();render();}
+  else if(a==='renewEx'){
+    var nrn=0; progKeys().forEach(function(k){ var used={}; S.program[k].ex.forEach(function(e){used[norm(e.name)]=1;});
+      S.program[k].ex.forEach(function(e){ var v=variantsOf(e.name); if(v.length>1){ var ci=-1; v.forEach(function(x,ix){if(norm(x)===norm(e.name)) ci=ix;}); for(var st=1;st<v.length;st++){ var cand=v[(ci+st)%v.length]; if(!used[norm(cand)]&&!nmach()[norm(cand)]){ delete used[norm(e.name)]; e.name=cand; used[norm(cand)]=1; nrn++; break; } } } }); });
+    S.renewAsked=ymd(weekStart()); save(); render(); toast(nrn+' exercice'+(nrn>1?'s':'')+' renouvelé'+(nrn>1?'s':'')+' 🔄');
   }
   else if(a==='swapEx'){
     i=+t.dataset.ex; var E4=S.draft.ex[i], vl=variantsOf(E4.name);
@@ -1436,7 +1498,7 @@ document.addEventListener('click',function(ev){
     S.onboarded=true; tab='today'; save(); render(); window.scrollTo(0,0); toast('C’est parti ! 💪');
   }
   else if(a==='skipCalib'){if(confirmTwice('skipCalib')){S.phase='prog';S.plan.start=ymd(new Date());S.moves={};S.over={};save();render();toast('Programme démarré 💪');}}
-  else if(a==='resetSessions'){if(confirmTwice('resetSessions')){S.sessions=[];S.draft=null;S.summary=null;S.moves={};S.over={};S.extras={};S.phase='calib';S.plan.start=ymd(new Date());restEnd=0;cancelBeep();tab='today';save();render();toast('Séances effacées. On repart de zéro ✅');}}
+  else if(a==='resetSessions'){if(confirmTwice('resetSessions')){S.sessions=[];S.draft=null;S.summary=null;S.moves={};S.over={};S.extras={};S.phase='prog';S.plan.start=ymd(new Date());restEnd=0;cancelBeep();tab='today';save();render();toast('Séances effacées. On repart de zéro ✅');}}
   else if(a==='resetAll'){if(confirmTwice('resetAll')){S=defaultState();ensureSeed();obStep=0;obW=null;tab='today';restEnd=0;cancelBeep();save();render();window.scrollTo(0,0);}}
   else if(a==='redoIntro'){S.onboarded=false;obStep=0;obW=null;save();render();}
   else if(a==='rir'){
