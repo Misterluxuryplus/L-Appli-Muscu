@@ -1125,8 +1125,22 @@ function postponeSession(m,T){
   }
   var rm=null;
   if(m<today){ var tT=parseYmd(T); for(var j=idx+1;j<dates.length;j++){ if(keys[j]===K&&(parseYmd(dates[j])-tT)/86400000<=3){ rm=dates[j]; dates.splice(j,1); keys.splice(j,1); break; } } }
+  var ti=dates.indexOf(T);
+  if(ti>=0){
+    var prev=T;
+    for(var j2=ti+1;j2<dates.length;j2++){
+      var dd0=parseYmd(dates[j2]), pp=parseYmd(prev);
+      if(Math.round((dd0-pp)/86400000)<2){
+        var nd=addDays(pp,2), gg=0, nk=ymd(nd);
+        while(gg<30&&(ex[nk]||(dn[nk]&&dn[nk].length)||S.pin[nk]||dates.indexOf(nk)>=0)){ nd=addDays(nd,1); nk=ymd(nd); gg++; }
+        dates[j2]=nk;
+      }
+      prev=dates[j2];
+    }
+  }
   S.fix[m]='';
   if(rm) S.fix[rm]='';
+  fd.forEach(function(d0){ if(dates.indexOf(d0)<0) S.fix[d0]=''; });
   dates.forEach(function(d,i){ S.fix[d]=keys[i]; });
   S.pin[T]=true;
   return T;
@@ -1298,8 +1312,9 @@ function viewCal(){
                '<div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">'+(k===today?'<button class="sm primary" data-act="start" data-day="'+key+'">Commencer</button>':'')+
                '<button class="sm ghost" data-act="calMove" data-date="'+k+'">Décaler</button>'+(isExtra?'<button class="sm ghost danger" data-act="calSkip" data-date="'+k+'">Supprimer</button>':'')+'</div>';
         var pvn=dayName(ymd(addDays(d,-1))), nxn=dayName(ymd(addDays(d,1))), mm=muscles(nm);
-        if(pvn&&overlaps(mm,muscles(pvn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que la veille ('+esc(pvn)+') : mieux vaut laisser 48 h.</p>';
-        else if(nxn&&overlaps(mm,muscles(nxn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que le lendemain ('+esc(nxn)+') : mieux vaut laisser 48 h.</p>';
+        var pkP=ymd(addDays(d,-1)), pkN=ymd(addDays(d,1)), chosen=!!(S.pin&&(S.pin[k]||S.pin[pkP]||S.pin[pkN]));
+        if(!chosen&&pvn&&overlaps(mm,muscles(pvn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que la veille ('+esc(pvn)+') : mieux vaut laisser 48 h.</p>';
+        else if(!chosen&&nxn&&overlaps(mm,muscles(nxn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que le lendemain ('+esc(nxn)+') : mieux vaut laisser 48 h.</p>';
       }
     } else if(!ds.length){
       if(calAdd===k){
