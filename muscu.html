@@ -239,7 +239,7 @@ function defaultProgram(){
   return buildProgram(pr.goal||'both',pr.level||'novice',nd);
 }
 function defaultState(){
-  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'light',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},reviewSeen:'',deloadWeek:'',deloadAsked:'',renewAsked:'',profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
+  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'light',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},fix:{},pin:{},reviewSeen:'',deloadWeek:'',deloadAsked:'',renewAsked:'',profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
 }
 var SEED_ROWS=[];
 function ensureSeed(){
@@ -536,7 +536,7 @@ function viewToday(){
   if(ml.length){
     var mk=ml[0], mkey=pm[mk], mp=S.program[mkey];
     if(mp) h+='<div class="card" style="border-color:var(--bad)"><div class="b">⚠️ '+esc(mp.name)+' manquée</div>'+
-       '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm primary" data-act="start" data-day="'+mkey+'">Maintenant</button><button class="sm" data-act="missTom" data-date="'+mk+'">Demain</button><button class="sm" data-act="tab" data-tab="cal">Autre jour</button><button class="sm ghost danger" data-act="calSkip" data-date="'+mk+'">Passer</button></div>'+
+       (homeMove===mk?homeMovePick(mk):'<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm primary" data-act="start" data-day="'+mkey+'">Maintenant</button><button class="sm" data-act="missTom" data-date="'+mk+'">Demain</button><button class="sm" data-act="homeMove" data-date="'+mk+'">Choisir un jour</button></div>')+
        (ml.length>1?'<p class="small muted" style="margin:8px 0 0">+ '+(ml.length-1)+' autre(s) dans le Planning</p>':'')+'</div>';
   }
   var doneTk=tk&&agoTxt(lastTime(tk))==='aujourd’hui', nd=calib?(nextCalibKey()||nextDay()):((tk&&S.program[tk]&&!doneTk)?tk:nextDay()), p=S.program[nd];
@@ -554,7 +554,7 @@ function viewToday(){
      '<p class="small muted" style="margin:0 0 4px">Dernière fois : '+agoTxt(lastTime(nd))+'</p>'+
      '<p class="small muted" style="margin:0 0 8px">'+p.ex.map(function(e){return esc(e.name);}).join(' · ')+'</p>'+
      (calib?'<p class="small" style="margin:0 0 12px">'+cm.x+'</p>':'<div class="tip" style="margin:6px 0 10px">'+coachFocus(p)+(cm.x?'<div class="muted" style="margin-top:6px">'+cm.x+'</div>':'')+'</div>'+coverHtml(p))+'<div style="height:10px"></div>'+
-     '<button class="primary full" style="padding:16px;font-size:19px;min-height:58px" data-act="start" data-day="'+nd+'">'+(calib?'Commencer le test':'Commencer la séance')+'</button></div>';
+     '<button class="primary full" style="padding:16px;font-size:19px;min-height:58px" data-act="start" data-day="'+nd+'">'+(calib?'Commencer le test':'Commencer la séance')+'</button>'+((!calib&&S.plan&&tk===nd&&!doneTk)?(homeMove===ymd(new Date())?homeMovePick(ymd(new Date())):'<div class="row" style="gap:6px;margin-top:8px"><button class="ghost" style="flex:1" data-act="skipToday" data-date="'+ymd(new Date())+'">Pas aujourd’hui → demain</button><button class="ghost" style="flex:1" data-act="homeMove" data-date="'+ymd(new Date())+'">Choisir un jour</button></div>'):'')+'</div>';
   var others=progKeys().filter(function(k){return k!==nd;});
   if(others.length){
     h+='<h2>Autres séances</h2>';
@@ -1040,7 +1040,7 @@ function exerciseNames(){
 
 /* ---------- planning ---------- */
 var DOW=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-var openSec={}, calOff=0, calMove=null, calAdd=null, calAct=null, obStep=0, obW=null;
+var openSec={}, homeMove=null, calOff=0, calMove=null, calAdd=null, calAct=null, obStep=0, obW=null;
 function parseYmd(x){return new Date(x+'T12:00:00');}
 function addDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
 function weekStartOf(d){var x=new Date(d.getTime());x.setHours(12,0,0,0);x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
@@ -1055,6 +1055,8 @@ function plannedMap(){
   Object.keys(mv).forEach(function(o){ if(out[o]){ var k=out[o]; delete out[o]; if(mv[o]) out[mv[o]]=k; } });
   var ov=S.over||{};
   Object.keys(ov).forEach(function(d3){ if(out[d3]&&S.program[ov[d3]]) out[d3]=ov[d3]; });
+  var fx=S.fix||{};
+  Object.keys(fx).forEach(function(d4){ if(fx[d4]===''){ delete out[d4]; } else if(S.program[fx[d4]]) out[d4]=fx[d4]; });
   var ex2=S.extras||{};
   Object.keys(ex2).forEach(function(d2){ out[d2]=ex2[d2]; });
   return out;
@@ -1066,8 +1068,8 @@ function perms(a){ if(a.length<=1) return [a.slice()]; var out=[]; a.forEach(fun
 function autoReflow(anyDate){
   if(!anyDate||S.phase==='calib') return false;
   S.over=S.over||{};
-  var ws=weekStartOf(parseYmd(anyDate)), today=ymd(new Date()), pm=plannedMap(), dn=doneByDate(), slots=[], i;
-  for(i=0;i<7;i++){ var k=ymd(addDays(ws,i)); if(k>today && pm[k] && !(S.extras||{})[k] && !(dn[k]&&dn[k].length)) slots.push(k); }
+  var ws=weekStartOf(parseYmd(anyDate)), today=ymd(new Date()), pm=plannedMap(), dn=doneByDate(), slots=[], pins=[], i;
+  for(i=0;i<7;i++){ var k=ymd(addDays(ws,i)); if(k>today && pm[k] && !(S.extras||{})[k] && !(dn[k]&&dn[k].length)){ if((S.pin||{})[k]) pins.push(k); else slots.push(k); } }
   if(slots.length<2) return false;
   var cur=slots.map(function(k){return pm[k];}), best=null, bc=Infinity;
   perms(cur).forEach(function(pr){
@@ -1077,10 +1079,11 @@ function autoReflow(anyDate){
       if(pn && overlaps(muscles(nm),muscles(pn))) cost+=10;
       if(pr[ix]!==cur[ix]) cost+=1;
     });
+    pins.forEach(function(k){ var prev2=ymd(addDays(parseYmd(k),-1)), pn2=at[prev2]?S.program[at[prev2]].name:dayNameOn(prev2,pm,dn); if(pn2 && overlaps(muscles(S.program[pm[k]].name),muscles(pn2))) cost+=10; });
     if(cost<bc){bc=cost;best=pr;}
   });
   var changed=false;
-  slots.forEach(function(k,ix){ if(best[ix]!==cur[ix]) changed=true; S.over[k]=best[ix]; });
+  slots.forEach(function(k,ix){ if(best[ix]!==cur[ix]) changed=true; if(S.fix&&(k in S.fix)) S.fix[k]=best[ix]; else S.over[k]=best[ix]; });
   return changed;
 }
 function reflowDates(list){
@@ -1102,6 +1105,35 @@ function moveSession(from,to){
   Object.keys(S.moves).forEach(function(w){if(S.moves[w]===from)o=w;});
   if(S.extras[from]){ var k=S.extras[from]; delete S.extras[from]; if(to) S.extras[to]=k; return; }
   if(o){ if(o===to) delete S.moves[o]; else S.moves[o]=to; } else S.moves[from]=to;
+}
+/* reporte une séance à une date : les suivantes sont décalées automatiquement, l'ordre du programme est conservé */
+function postponeSession(m,T){
+  var pm=plannedMap(), K=pm[m], today=ymd(new Date()), dn=doneByDate(), ex=S.extras||{};
+  if(!K) return null;
+  if(ex[m]){ moveSession(m,T); return T; }
+  S.fix=S.fix||{}; S.pin=S.pin||{};
+  var g0=0; while(((ex[T])||(dn[T]&&dn[T].length))&&g0<60){ T=ymd(addDays(parseYmd(T),1)); g0++; }
+  var fd=Object.keys(pm).filter(function(d){return d>=today&&d!==m&&!ex[d]&&!(dn[d]&&dn[d].length);}).sort();
+  var keys=fd.map(function(d){return pm[d];}), dates=fd.slice(), idx=0;
+  while(idx<dates.length&&dates[idx]<T) idx++;
+  if(dates[idx]!==T){ dates.splice(idx,0,T); keys.splice(idx,0,K); }
+  else{
+    keys.splice(idx,0,K);
+    var pl=S.plan, endD=ymd(addDays(parseYmd(pl.start),(pl.weeks||8)*7)), d=parseYmd(dates[dates.length-1]), g=0, ok=false;
+    for(;g<120;g++){ d=addDays(d,1); var dk=ymd(d); if(dk>=endD) break; if((pl.days||[]).indexOf((d.getDay()+6)%7)>=0&&!ex[dk]&&!(dn[dk]&&dn[dk].length)&&!pm[dk]){ ok=true; break; } }
+    if(ok) dates.push(ymd(d)); else keys.pop();
+  }
+  var rm=null;
+  if(m<today){ var tT=parseYmd(T); for(var j=idx+1;j<dates.length;j++){ if(keys[j]===K&&(parseYmd(dates[j])-tT)/86400000<=3){ rm=dates[j]; dates.splice(j,1); keys.splice(j,1); break; } } }
+  S.fix[m]='';
+  if(rm) S.fix[rm]='';
+  dates.forEach(function(d,i){ S.fix[d]=keys[i]; });
+  S.pin[T]=true;
+  return T;
+}
+function homeMovePick(k){
+  var today=ymd(new Date());
+  return '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"><span class="small">Quel jour ?</span><input type="date" id="homeDate" min="'+today+'" value="'+ymd(addDays(new Date(),1))+'"><button class="sm primary" data-act="homeMoveOk" data-date="'+k+'">OK</button><button class="sm ghost" data-act="homeMoveCancel">✕</button></div><p class="small muted" style="margin:6px 0 0">Les séances suivantes se décalent toutes seules.</p>';
 }
 function freeDayFrom(dateStr){
   var pm=plannedMap(), d=parseYmd(dateStr), n=0;
@@ -1145,7 +1177,7 @@ function nextCalibName(){var k=nextCalibKey();return k?S.program[k].name:'';}
 function maybeFinishCalib(){
   if(S.phase!=='calib') return false;
   var c=calibStats();
-  if(c.total&&c.done>=c.total){S.phase='prog';S.plan.start=ymd(addDays(new Date(),1));S.moves={};S.over={};return true;}
+  if(c.total&&c.done>=c.total){S.phase='prog';S.plan.start=ymd(addDays(new Date(),1));S.moves={};S.over={};S.fix={};S.pin={};return true;}
   return false;
 }
 function coachFocus(p){
@@ -1264,7 +1296,7 @@ function viewCal(){
       } else {
         inner+='<div class="b">'+sIc(nm)+esc(nm)+(isExtra?' <span class="pill">ajoutée</span>':'')+'</div>'+(k<today?'<div class="late small">Manquée</div>':(k===today?'':'<div class="muted small">Prévue</div>'))+
                '<div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">'+(k===today?'<button class="sm primary" data-act="start" data-day="'+key+'">Commencer</button>':'')+
-               '<button class="sm ghost" data-act="calMove" data-date="'+k+'">Décaler</button><button class="sm ghost danger" data-act="calSkip" data-date="'+k+'">'+(isExtra?'Supprimer':'Passer')+'</button></div>';
+               '<button class="sm ghost" data-act="calMove" data-date="'+k+'">Décaler</button>'+(isExtra?'<button class="sm ghost danger" data-act="calSkip" data-date="'+k+'">Supprimer</button>':'')+'</div>';
         var pvn=dayName(ymd(addDays(d,-1))), nxn=dayName(ymd(addDays(d,1))), mm=muscles(nm);
         if(pvn&&overlaps(mm,muscles(pvn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que la veille ('+esc(pvn)+') : mieux vaut laisser 48 h.</p>';
         else if(nxn&&overlaps(mm,muscles(nxn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que le lendemain ('+esc(nxn)+') : mieux vaut laisser 48 h.</p>';
@@ -1597,8 +1629,16 @@ document.addEventListener('click',function(ev){
     var ak=$('#calKey').value; S.extras[t.dataset.date]=ak; var rf4=reflowDates([t.dataset.date]); calAdd=null; save(); render(); toast('Séance ajoutée ✅'+(rf4?' Planning réorganisé automatiquement.':' à la suite de ton programme'));
   }
   else if(a==='calSkip'){moveSession(t.dataset.date,'');var rf2=reflowDates([t.dataset.date]);save();render();toast(rf2?'Séance retirée. Planning réorganisé automatiquement.':'Séance retirée du planning.');}
-  else if(a==='missTom'){var tn=freeDayFrom(ymd(addDays(new Date(),1)));moveSession(t.dataset.date,tn);var rf3=reflowDates([tn]);save();render();toast('Séance reportée au '+fmtDate(tn)+' ✅'+(rf3?' Planning réorganisé automatiquement.':''));}
-  else if(a==='obdays'){var nn=+t.dataset.n;S.plan.days=DAYMAP[nn]||DAYMAP[3];S.perWeek=nn;S.moves={};S.over={};save();render();}
+  else if(a==='homeMove'){homeMove=t.dataset.date;render();}
+  else if(a==='homeMoveCancel'){homeMove=null;render();}
+  else if(a==='homeMoveOk'){
+    var hd=$('#homeDate').value, hs=t.dataset.date;
+    if(!hd||hd<ymd(new Date())){toast('Choisis un jour à partir d’aujourd’hui.');return;}
+    var hn=postponeSession(hs,hd), hr=reflowDates([hn]); homeMove=null; save(); render();
+    toast('Séance décalée au '+fmtDate(hn)+' ✅ Les suivantes sont décalées automatiquement.'+(hr?' Planning réorganisé.':''));
+  }
+  else if(a==='missTom'||a==='skipToday'){var tn=postponeSession(t.dataset.date,ymd(addDays(new Date(),1)));var rf3=reflowDates([tn]);save();render();toast('Séance reportée au '+fmtDate(tn)+' ✅ Les suivantes sont décalées automatiquement.'+(rf3?' Planning réorganisé.':''));}
+  else if(a==='obdays'){var nn=+t.dataset.n;S.plan.days=DAYMAP[nn]||DAYMAP[3];S.perWeek=nn;S.moves={};S.over={};S.fix={};S.pin={};save();render();}
   else if(a==='obNext'){obStep=Math.min(3,obStep+1);render();window.scrollTo(0,0);}
   else if(a==='obPrev'){obStep=Math.max(0,obStep-1);render();window.scrollTo(0,0);}
   else if(a==='obset'){S.profile[t.dataset.f]=t.dataset.v;save();render();}
@@ -1607,11 +1647,11 @@ document.addEventListener('click',function(ev){
     if(ow&&(curWeight()==null||Math.abs(ow-curWeight())>0.05)) S.body.push({id:uid(),date:ymd(new Date()),w:ow,waist:null});
     S.program=buildProgram(S.profile.goal||'both',S.profile.level||'novice',(S.plan.days||[0,2,4]).length);
     S.cardioMin=(S.profile.goal==='muscle')?15:30;
-    S.moves={};S.over={}; S.extras={}; S.phase='prog'; S.plan.start=ymd(new Date());
+    S.moves={};S.over={};S.fix={};S.pin={}; S.extras={}; S.phase='prog'; S.plan.start=ymd(new Date());
     S.onboarded=true; tab='today'; save(); render(); window.scrollTo(0,0); toast('C’est parti ! 💪');
   }
-  else if(a==='skipCalib'){if(confirmTwice('skipCalib')){S.phase='prog';S.plan.start=ymd(new Date());S.moves={};S.over={};save();render();toast('Programme démarré 💪');}}
-  else if(a==='resetSessions'){if(confirmTwice('resetSessions')){S.sessions=[];S.draft=null;S.summary=null;S.moves={};S.over={};S.extras={};S.phase='prog';S.plan.start=ymd(new Date());restEnd=0;cancelBeep();tab='today';save();render();toast('Séances effacées. On repart de zéro ✅');}}
+  else if(a==='skipCalib'){if(confirmTwice('skipCalib')){S.phase='prog';S.plan.start=ymd(new Date());S.moves={};S.over={};S.fix={};S.pin={};save();render();toast('Programme démarré 💪');}}
+  else if(a==='resetSessions'){if(confirmTwice('resetSessions')){S.sessions=[];S.draft=null;S.summary=null;S.moves={};S.over={};S.fix={};S.pin={};S.extras={};S.phase='prog';S.plan.start=ymd(new Date());restEnd=0;cancelBeep();tab='today';save();render();toast('Séances effacées. On repart de zéro ✅');}}
   else if(a==='resetAll'){if(confirmTwice('resetAll')){S=defaultState();ensureSeed();obStep=0;obW=null;tab='today';restEnd=0;cancelBeep();save();render();window.scrollTo(0,0);}}
   else if(a==='redoIntro'){S.onboarded=false;obStep=0;obW=null;save();render();}
   else if(a==='rir'){
@@ -1633,15 +1673,17 @@ document.addEventListener('click',function(ev){
   else if(a==='calMoveOk'){
     var nd=$('#calDate').value, pm=plannedMap();
     if(!nd){toast('Choisis une date.');return;}
-    if(pm[nd]&&nd!==calMove){toast('Une autre séance est déjà prévue ce jour-là.');return;}
-    var fromD=calMove; moveSession(calMove,nd);
-    var rf1=reflowDates([nd,fromD]);
-    calMove=null; save(); render(); toast(rf1?'Séance décalée ✅ Planning réorganisé automatiquement pour limiter les mêmes muscles deux jours de suite':'Séance décalée ✅');
+    var fromD=calMove, rf1, tdy=ymd(new Date());
+    if(nd<tdy){
+      if(pm[nd]&&nd!==calMove){toast('Une autre séance est déjà prévue ce jour-là.');return;}
+      moveSession(calMove,nd); rf1=reflowDates([nd,fromD]);
+    } else { var nd2=postponeSession(calMove,nd); rf1=reflowDates([nd2,fromD]); nd=nd2; }
+    calMove=null; save(); render(); toast('Séance décalée au '+fmtDate(nd)+' ✅ Les suivantes sont décalées automatiquement.'+(rf1?' Planning réorganisé.':''));
   }
   else if(a==='pday'){
     var di=+t.dataset.d, ds=S.plan.days||[], ix=ds.indexOf(di);
     if(ix>=0){ if(ds.length<=1){toast('Garde au moins un jour.');return;} ds.splice(ix,1); } else ds.push(di);
-    ds.sort(); S.plan.days=ds; S.perWeek=ds.length; S.moves={};S.over={}; save(); render();
+    ds.sort(); S.plan.days=ds; S.perWeek=ds.length; S.moves={};S.over={};S.fix={};S.pin={}; save(); render();
   }
   else if(a==='compAdd'){
     var cw=num($('#cW').value),cf=num($('#cFat').value),cmu=num($('#cMus').value),cab=num($('#cAbd').value),cv=num($('#cVisc').value),cd=$('#cDate').value||ymd(new Date());
@@ -1681,7 +1723,7 @@ document.addEventListener('change',function(ev){
   else if(t.dataset.pls){
     if(t.dataset.pls==='weeks') S.plan.weeks=parseInt(t.value,10)||8;
     else if(t.value) S.plan.start=t.value;
-    S.moves={};S.over={}; save(); render();
+    S.moves={};S.over={};S.fix={};S.pin={}; save(); render();
   }
   else if(t.dataset.sel){S.sel=t.value;save();render();}
   else if(t.dataset.tw){render();}
