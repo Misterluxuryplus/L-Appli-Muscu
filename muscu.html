@@ -239,7 +239,7 @@ function defaultProgram(){
   return buildProgram(pr.goal||'both',pr.level||'novice',nd);
 }
 function defaultState(){
-  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'light',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},fix:{},pin:{},reviewSeen:'',deloadWeek:'',deloadAsked:'',renewAsked:'',profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
+  return {v:1,updated:0,rest:90,perWeek:3,targetWeight:'',sel:'',program:defaultProgram(),sessions:[],body:[],comp:[],acts:[],theme:'light',seeded:false,cm:'w',progV:0,notes:{},tm:{speed:5.5,inc:6,type:'tapis',level:'mod'},summary:null,moves:{},over:{},fix:{},pin:{},tt:[1,3],reviewSeen:'',deloadWeek:'',deloadAsked:'',renewAsked:'',profile:{name:'',goal:'both',level:'novice',height:'',injuries:''},onboarded:false,lastBackup:0,phase:'prog',rest1:60,rest2:120,cardioMin:30,extras:{},plan:{weeks:8,start:ymd(new Date()),days:[0,2,4]},draft:null};
 }
 var SEED_ROWS=[];
 function ensureSeed(){
@@ -1007,6 +1007,7 @@ function viewProg(){
   h+='<details class="sec" data-sec="prog"'+(openSec.prog?' open':'')+'><summary>📋 Mon programme</summary>';
   h+='<div class="card"><h2 style="margin-top:0">Durée et jours</h2><div class="two"><div><label class="f">Durée</label><select data-pls="weeks">'+[4,8,12,16].map(function(n){return '<option value="'+n+'"'+(pl.weeks===n?' selected':'')+'>'+n+' semaines</option>';}).join('')+'</select></div>'+
     (S.phase==='calib'?'':'<div><label class="f">Début</label><input type="date" data-pls="start" value="'+esc(pl.start)+'"></div>')+'</div>'+
+    '<label class="f" style="margin-top:12px">Jours de tennis de table 🏓 (l’appli évite d’y décaler une séance)</label><div class="seg">'+DOW.map(function(n,i){return '<button class="sm'+((S.tt||[]).indexOf(i)>=0?' on':'')+'" data-act="ttday" data-d="'+i+'">'+n+'</button>';}).join('')+'</div>'+
     '<label class="f" style="margin-top:12px">Jours d’entraînement</label><div class="seg">'+DOW.map(function(n,i){return '<button class="sm'+((pl.days||[]).indexOf(i)>=0?' on':'')+'" data-act="pday" data-d="'+i+'">'+n+'</button>';}).join('')+'</div>'+
     '</div>';
   Object.keys(S.program).forEach(function(k){
@@ -1120,7 +1121,7 @@ function postponeSession(m,T){
   else{
     keys.splice(idx,0,K);
     var pl=S.plan, endD=ymd(addDays(parseYmd(pl.start),(pl.weeks||8)*7)), d=parseYmd(dates[dates.length-1]), g=0, ok=false;
-    for(;g<120;g++){ d=addDays(d,1); var dk=ymd(d); if(dk>=endD) break; if((pl.days||[]).indexOf((d.getDay()+6)%7)>=0&&!ex[dk]&&!(dn[dk]&&dn[dk].length)&&!pm[dk]){ ok=true; break; } }
+    for(;g<120;g++){ d=addDays(d,1); var dk=ymd(d); if(dk>=endD) break; if((pl.days||[]).indexOf((d.getDay()+6)%7)>=0&&!isTT(d)&&!ex[dk]&&!(dn[dk]&&dn[dk].length)&&!pm[dk]){ ok=true; break; } }
     if(ok) dates.push(ymd(d)); else keys.pop();
   }
   var rm=null;
@@ -1132,7 +1133,7 @@ function postponeSession(m,T){
       var dd0=parseYmd(dates[j2]), pp=parseYmd(prev);
       if(Math.round((dd0-pp)/86400000)<2){
         var nd=addDays(pp,2), gg=0, nk=ymd(nd);
-        while(gg<30&&(ex[nk]||(dn[nk]&&dn[nk].length)||S.pin[nk]||dates.indexOf(nk)>=0)){ nd=addDays(nd,1); nk=ymd(nd); gg++; }
+        while(gg<30&&(isTT(nd)||ex[nk]||(dn[nk]&&dn[nk].length)||S.pin[nk]||dates.slice(0,j2).indexOf(nk)>=0)){ nd=addDays(nd,1); nk=ymd(nd); gg++; }
         dates[j2]=nk;
       }
       prev=dates[j2];
@@ -1145,9 +1146,12 @@ function postponeSession(m,T){
   S.pin[T]=true;
   return T;
 }
+function isTT(d){ return (S.tt||[]).indexOf((d.getDay()+6)%7)>=0; }
+function nextNonTT(d0){ var d=d0, n=0; while(isTT(d)&&n<7){ d=addDays(d,1); n++; } return ymd(d); }
+function ttNote(){ var t=(S.tt||[]); return t.length?'🏓 Je évite '+t.map(function(i){return DOW[i];}).join(' et ')+' (tennis de table).':''; }
 function homeMovePick(k){
   var today=ymd(new Date());
-  return '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"><span class="small">Quel jour ?</span><input type="date" id="homeDate" min="'+today+'" value="'+ymd(addDays(new Date(),1))+'"><button class="sm primary" data-act="homeMoveOk" data-date="'+k+'">OK</button><button class="sm ghost" data-act="homeMoveCancel">✕</button></div><p class="small muted" style="margin:6px 0 0">Les séances suivantes se décalent toutes seules.</p>';
+  return '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"><span class="small">Quel jour ?</span><input type="date" id="homeDate" min="'+today+'" value="'+nextNonTT(addDays(new Date(),1))+'"><button class="sm primary" data-act="homeMoveOk" data-date="'+k+'">OK</button><button class="sm ghost" data-act="homeMoveCancel">✕</button></div><p class="small muted" style="margin:6px 0 0">Les séances suivantes se décalent toutes seules.'+(ttNote()?' '+ttNote():'')+'</p>';
 }
 function freeDayFrom(dateStr){
   var pm=plannedMap(), d=parseYmd(dateStr), n=0;
@@ -1306,11 +1310,12 @@ function viewCal(){
     if(key && !ds.length){
       var nm=S.program[key]?S.program[key].name:key, isExtra=!!S.extras[k];
       if(calMove===k){
-        inner+='<div class="b">'+esc(nm)+'</div><div class="row" style="margin-top:8px"><input type="date" id="calDate" value="'+(k<today?today:ymd(addDays(d,1)))+'"><button class="sm primary" data-act="calMoveOk">OK</button><button class="sm ghost" data-act="calMoveCancel">✕</button></div>';
+        inner+='<div class="b">'+esc(nm)+'</div><div class="row" style="margin-top:8px"><input type="date" id="calDate" value="'+(k<today?today:nextNonTT(addDays(d,1)))+'"><button class="sm primary" data-act="calMoveOk">OK</button><button class="sm ghost" data-act="calMoveCancel">✕</button></div>';
       } else {
         inner+='<div class="b">'+sIc(nm)+esc(nm)+(isExtra?' <span class="pill">ajoutée</span>':'')+'</div>'+(k<today?'<div class="late small">Manquée</div>':(k===today?'':'<div class="muted small">Prévue</div>'))+
                '<div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">'+(k===today?'<button class="sm primary" data-act="start" data-day="'+key+'">Commencer</button>':'')+
                '<button class="sm ghost" data-act="calMove" data-date="'+k+'">Décaler</button>'+(isExtra?'<button class="sm ghost danger" data-act="calSkip" data-date="'+k+'">Supprimer</button>':'')+'</div>';
+        if(isTT(d)) inner+='<p class="small muted" style="margin:6px 0 0">🏓 Jour de tennis de table</p>';
         var pvn=dayName(ymd(addDays(d,-1))), nxn=dayName(ymd(addDays(d,1))), mm=muscles(nm);
         var pkP=ymd(addDays(d,-1)), pkN=ymd(addDays(d,1)), chosen=!!(S.pin&&(S.pin[k]||S.pin[pkP]||S.pin[pkN]));
         if(!chosen&&pvn&&overlaps(mm,muscles(pvn))) inner+='<p class="small" style="margin:8px 0 0;color:var(--bad)">⚠️ Mêmes muscles que la veille ('+esc(pvn)+') : mieux vaut laisser 48 h.</p>';
@@ -1694,6 +1699,11 @@ document.addEventListener('click',function(ev){
       moveSession(calMove,nd); rf1=reflowDates([nd,fromD]);
     } else { var nd2=postponeSession(calMove,nd); rf1=reflowDates([nd2,fromD]); nd=nd2; }
     calMove=null; save(); render(); toast('Séance décalée au '+fmtDate(nd)+' ✅ Les suivantes sont décalées automatiquement.'+(rf1?' Planning réorganisé.':''));
+  }
+  else if(a==='ttday'){
+    var di2=+t.dataset.d, tt=S.tt||[], ix2=tt.indexOf(di2);
+    if(ix2>=0) tt.splice(ix2,1); else tt.push(di2);
+    tt.sort(); S.tt=tt; save(); render();
   }
   else if(a==='pday'){
     var di=+t.dataset.d, ds=S.plan.days||[], ix=ds.indexOf(di);
