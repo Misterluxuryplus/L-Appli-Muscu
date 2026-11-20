@@ -1367,7 +1367,8 @@ function viewOnboard(){
           adv:'Tu t’entraînes depuis longtemps : même programme complet que l’intermédiaire, avec 4 séries sur les gros exercices.'};
   if(obStep===0){
     var wv=obW!==null?obW:(curWeight()!=null?String(curWeight()).replace('.',','):'');
-    h+='<div class="card"><div class="big" style="font-size:26px">Bienvenue 👋</div><p class="muted" style="margin:6px 0 14px">On fait connaissance en 1 minute.</p><label class="f">Ton prénom</label><input data-pr="name" value="'+esc(pr.name)+'" placeholder="Ton prénom"><div style="margin-top:12px"><label class="f">Ton poids actuel (kg)</label><input inputmode="decimal" data-ob="w" value="'+esc(wv)+'" placeholder="ex. 104"></div></div>';
+    h+='<div class="card"><div class="big" style="font-size:26px">Bienvenue 👋</div><p class="muted" style="margin:6px 0 14px">On fait connaissance en 1 minute.</p><label class="f">Ton prénom</label><input data-pr="name" value="'+esc(pr.name)+'" placeholder="Ton prénom"><div style="margin-top:12px"><label class="f">Ton poids actuel (kg)</label><input inputmode="decimal" data-ob="w" value="'+esc(wv)+'" placeholder="ex. 104"></div></div>'+
+      '<details class="card" style="margin-top:12px"><summary class="b">💾 J’ai déjà une sauvegarde</summary><label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain,*/*"><label class="f" style="margin-top:12px">… ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer</button></details>';
   } else if(obStep===1){
     h+='<div class="card"><div class="b" style="font-size:18px">Ton objectif</div><div class="seg" style="margin-top:10px;flex-direction:column">'+GOALS.map(function(o){return '<button class="'+(pr.goal===o[0]?'on':'')+'" data-act="obset" data-f="goal" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div><p class="small muted" style="margin:10px 0 0">'+GD[pr.goal||'both']+'</p>'+
        '<div class="b" style="font-size:18px;margin-top:18px">Ton niveau</div><div class="seg" style="margin-top:10px">'+LV.map(function(o){return '<button class="'+(pr.level===o[0]?'on':'')+'" data-act="obset" data-f="level" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div><p class="small muted" style="margin:10px 0 0">'+LD[pr.level||'novice']+'</p></div>';
@@ -1605,7 +1606,7 @@ document.addEventListener('click',function(ev){
   }
   else if(a==='expShow'){showExp=!showExp;render();}
   else if(a==='backupNow'){doBackup();}
-  else if(a==='importDo'){try{var ob=JSON.parse(($('#imp').value||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;merge(ob);S.draft=null;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Texte invalide : colle toute la sauvegarde.');}}
+  else if(a==='importDo'){try{var ob=JSON.parse(($('#imp').value||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;merge(ob);S.draft=null;if((S.sessions&&S.sessions.length)||(S.body&&S.body.length))S.onboarded=true;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Texte invalide : colle toute la sauvegarde.');}}
   else if(a==='machToggle'){var mk2=t.dataset.k; if(nmach()[mk2]) delete nmach()[mk2]; else nmach()[mk2]=1; applyAvail(S.program); save(); render();}
   else if(a==='delset'){i=+t.dataset.ex;var arr2=S.draft.ex[i].sets;if(arr2.length>1){arr2.pop();save();render();}}
   else if(a==='addset'){i=+t.dataset.ex;var arr=S.draft.ex[i].sets,lastS=arr[arr.length-1];arr.push({w:lastS?lastS.w:'',r:'',done:false});save();render();}
@@ -1739,7 +1740,7 @@ document.addEventListener('change',function(ev){
   var t=ev.target;
   if(t.id==='impFile'&&t.files&&t.files[0]){
     var fr=new FileReader();
-    fr.onload=function(){try{var ob=JSON.parse(String(fr.result||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;merge(ob);S.draft=null;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Fichier invalide.');}};
+    fr.onload=function(){try{var ob=JSON.parse(String(fr.result||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;merge(ob);S.draft=null;if((S.sessions&&S.sessions.length)||(S.body&&S.body.length))S.onboarded=true;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Fichier invalide.');}};
     fr.readAsText(t.files[0]); return;
   }
   if(t.dataset.rs){S[t.dataset.rs]=parseInt(t.value,10)||60;save();}
