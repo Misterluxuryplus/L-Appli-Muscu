@@ -327,6 +327,12 @@ async function initStore(){
 }
 
 /* ---------- historique ---------- */
+var STACK={'tirage vertical':[5,12,19,26,33,40,47,57,67,77,87,97,107,117,127],'rowing machine':[5,15,25,35,45,55,65,75,85,95,105,115,125,135,145],'développé épaules machine':[5,10,15,20,25,30,35,40,45,50,55,60,65,70,75],'élévations latérales haltères':[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],'élévations latérales machine':[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30]};
+function stackOf(name){return STACK[norm(name)]||null;}
+function nextUp(name,w){var st=stackOf(name); if(!st) return w+2.5; for(var i=0;i<st.length;i++){ if(st[i]>w+0.01) return st[i]; } return st[st.length-1];}
+function nextDown(name,w){var st=stackOf(name); if(!st) return w-2.5; for(var i=st.length-1;i>=0;i--){ if(st[i]<w-0.01) return st[i]; } return st[0];}
+function snapW(name,w){var st=stackOf(name); if(!st) return Math.max(2.5,Math.round(w/2.5)*2.5); var b=st[0]; st.forEach(function(x){ if(Math.abs(x-w)<Math.abs(b-w)) b=x; }); return b;}
+function stackTxt(name){var st=stackOf(name); if(!st) return ''; var i=st.indexOf(47); return (i>0?st.slice(0,i+1).join(' · ')+' puis de 10 en 10 jusqu’à '+st[st.length-1]:st.join(' · '))+' kg';}
 function lastInfo(name,reps){
   var key = norm(name);
   for(var i=S.sessions.length-1;i>=0;i--){
@@ -335,8 +341,8 @@ function lastInfo(name,reps){
       if(norm(logs[j].name)===key && logs[j].sets.length){
         var sets = logs[j].sets, top = 0, all = true, low = true, mx = maxRep(reps), mn = minRep(reps);
         sets.forEach(function(s){ if(s.w>top) top=s.w; if(!(mx && s.r>=mx)) all=false; if(!(mn && s.r<mn)) low=false; });
-        var bump = all && top>0, down = !bump && low && top>2.5;
-        return {date:S.sessions[i].date, sets:sets, top:top, bump:bump, down:down, suggW: bump ? top+2.5 : (down ? top-2.5 : top)};
+        var bump = all && top>0, down = !bump && low && top>(stackOf(name)?stackOf(name)[0]:2.5);
+        return {date:S.sessions[i].date, sets:sets, top:top, bump:bump, down:down, suggW: bump ? nextUp(name,top) : (down ? nextDown(name,top) : top)};
       }
     }
   }
@@ -906,7 +912,7 @@ function plateLine(e,i){
 }
 function warmLine(e,i){
   if(i!==0||e.sets.some(function(x){return x.done;})) return '';
-  var ww=e.info?Math.max(2.5,Math.round(e.info.suggW*0.5/2.5)*2.5):null;
+  var ww=e.info?(stackOf(e.name)?snapW(e.name,e.info.suggW*0.5):Math.max(2.5,Math.round(e.info.suggW*0.5/2.5)*2.5)):null;
   return '<p class="hint">🔥 Échauffement : 1 série de 10 reps '+(ww?'à environ '+fmt(ww)+' kg (la moitié de ta charge)':'très légère')+', sans la noter.</p>';
 }
 function exHist(name){var key=norm(name),out=[];S.sessions.forEach(function(se){se.logs.forEach(function(l){if(norm(l.name)===key&&l.sets.length)out.push(l.sets);});});return out;}
@@ -932,6 +938,7 @@ function adjW(e){
   else m='✅ Bonne charge !';
   if(!w) return {w:null,m:m};
   var nw=Math.max(2.5,Math.round(w*f/2.5)*2.5);
+  if(stackOf(e.name)){ nw=snapW(e.name,w*f); if(f>1&&nw<=w) nw=nextUp(e.name,w); if(f<1&&nw>=w) nw=nextDown(e.name,w); }
   return {w:nw,m:m+(f===1?' Garde '+fmt(nw)+' kg.':' Prends '+fmt(nw)+' kg pour la série suivante.')};
 }
 function firstTip(e){var a=adjW(e);return a?'<p class="tip">'+a.m+'</p>':'';}
@@ -951,7 +958,7 @@ function viewDraft(){
   if(inj) h+='<div class="card small" style="border-color:var(--bad)">⚠️ '+esc(inj)+'</div>';
   d.ex.forEach(function(e,i){
     var done=e.sets.filter(function(s){return s.done;}).length, testDone=e.sets[0]&&e.sets[0].done;
-    h+='<div class="card'+(done>0&&done===e.sets.length?' okc':'')+'"><div class="row between"><span class="exh"><span class="ei">'+eIc(e.name)+'</span><span class="en">'+esc(e.name)+'</span></span><span class="pill">'+esc(e.target)+'</span></div>';
+    h+='<div class="card'+(done>0&&done===e.sets.length?' okc':'')+'"><div class="row between"><span class="exh"><span class="ei">'+eIc(e.name)+'</span><span class="en">'+esc(e.name)+'</span></span><span class="pill">'+esc(e.target)+'</span></div>'+(stackOf(e.name)?'<p class="hint">🔩 '+(/lat\u00e9rales/i.test(e.name)?'Haltères (un par main) : ':'Crans de la machine : ')+stackTxt(e.name)+'. Prends le plus proche.</p>':'');
     if(BW[norm(e.name)]){
       var rgb=String(e.target).match(/\u00d7\s*(\d+)(?:-(\d+))?/)||[], mnb=+rgb[1]||10, mxb=+rgb[2]||mnb;
       if(e.info){ var lob=Math.min.apply(null,e.info.sets.map(function(x){return x.r;}));
@@ -964,7 +971,7 @@ function viewDraft(){
       else if(e.info.down) goal='Baisse à <b>'+fmt(e.info.suggW)+' kg</b> et vise <b>'+mn3+' reps</b> sur chaque série.';
       else goal='Garde <b>'+fmt(e.info.suggW)+' kg</b> et vise <b>'+Math.min(mx3,Math.max(mn3,lo+1))+' reps</b> sur chaque série.';
       if(d.deload){ var dw0=e.sets[0]?e.sets[0].w:''; h+='<p class="hint">Dernière fois : '+txt+'</p><div class="tip">🌱 <b>Aujourd’hui (semaine allégée) :</b> prends environ <b>'+esc(String(dw0))+' kg</b> et fais '+mn3+' à '+mx3+' reps tranquilles, sans aller à l’échec.</div>'; }
-      else h+='<p class="hint">Dernière fois : '+txt+'</p><div class="tip">🎯 <b>Aujourd’hui :</b> '+goal+(!e.info.bump&&!e.info.down?'<div class="muted small" style="margin-top:4px">Dès que tu fais '+mx3+' reps partout, tu montes de 2,5 kg.</div>':'')+'</div>';
+      else h+='<p class="hint">Dernière fois : '+txt+'</p><div class="tip">🎯 <b>Aujourd’hui :</b> '+goal+(!e.info.bump&&!e.info.down?'<div class="muted small" style="margin-top:4px">Dès que tu fais '+mx3+' reps partout, tu montes '+(stackOf(e.name)?'au cran suivant ('+fmt(nextUp(e.name,e.info.top))+' kg)':'de 2,5 kg')+'.</div>':'')+'</div>';
     } else {
       var rg2=String(e.target).match(/\u00d7\s*(\d+)(?:-(\d+))?/)||[];
       var lo2=rg2[1]||8, hi2=rg2[2]||rg2[1]||12, rngT=(lo2===hi2)?'environ <b>'+lo2+' reps</b>':'<b>'+lo2+' à '+hi2+' reps</b>';
@@ -1523,7 +1530,7 @@ function startSession(day){
   tab='today'; var soft=false, deload=(S.deloadWeek===ymd(weekStart()));
   S.draft={day:day,soft:soft,deload:deload,calib:S.phase==='calib',start:new Date().toISOString(),ex:p.ex.map(function(e){
     var info=lastInfo(e.name,e.reps), n=Math.max(1,parseInt(e.sets,10)||3), sets=[]; if(soft||deload) n=Math.max(2,n-1);
-    var w0=info?(deload?Math.max(2.5,Math.round(info.suggW*0.9/2.5)*2.5):info.suggW):'';
+    var w0=info?(deload?(stackOf(e.name)?snapW(e.name,info.suggW*0.9):Math.max(2.5,Math.round(info.suggW*0.9/2.5)*2.5)):info.suggW):'';
     for(var i=0;i<n;i++) sets.push({w:(info&&w0>0)?String(w0).replace('.',','):'',r:'',done:false});
     return {name:e.name,target:e.sets+'×'+e.reps,info:info,sets:sets};
   }),tm:{min:S.cardioMin||30,kcal:'',type:S.tm.type||'tapis'},gym:''};
@@ -1681,6 +1688,7 @@ document.addEventListener('click',function(ev){
     var vv=t.dataset.v, f={A:0.92,B:1,C:1.08,D:1.18}[vv], nw=Math.round(w0*f/2.5)*2.5;
     if(f!==1&&nw===w0) nw+=(f>1?2.5:-2.5);
     if(nw<2.5) nw=2.5;
+    if(stackOf(E.name)){ nw=snapW(E.name,w0*f); if(f>1&&nw<=w0) nw=nextUp(E.name,w0); if(f<1&&nw>=w0) nw=nextDown(E.name,w0); }
     var msg={A:'Un peu lourd : on baisse.',B:'Parfait.',C:'On monte un peu.',D:'On monte nettement.'}[vv];
     E.sets.forEach(function(x,k){if(k>0&&!x.done)x.w=String(nw).replace('.',',');});
     E.rated=true; E.advice='🎯 '+msg+' Charge conseillée : <b>'+fmt(nw)+' kg</b>.';
