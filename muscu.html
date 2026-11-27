@@ -286,7 +286,11 @@ var LS_KEY = 'appli-muscu-v1';
 var ref = null, saveTimer = null, syncMsg = 'sur cet appareil';
 function setSync(m){syncMsg=m;var el=$('#sync');if(el)el.textContent=m;}
 function lsLoad(){try{var t=localStorage.getItem(LS_KEY);return t?JSON.parse(t):null;}catch(e){return null;}}
-function lsSave(){try{localStorage.setItem(LS_KEY,JSON.stringify(S));}catch(e){}}
+function lsSave(){var j=JSON.stringify(S);try{localStorage.setItem(LS_KEY,j);}catch(e){} idbPut(j);}
+/* copie de sécurité dans IndexedDB (survit si le stockage normal est effacé par une autre appli du même site) */
+function idbOpen(){return new Promise(function(ok,ko){try{var r=indexedDB.open('appli-muscu-safe',1);r.onupgradeneeded=function(){r.result.createObjectStore('k');};r.onsuccess=function(){ok(r.result);};r.onerror=function(){ko();};}catch(e){ko();}});}
+function idbPut(j){try{idbOpen().then(function(db){var t=db.transaction('k','readwrite');t.objectStore('k').put(j,'state');t.oncomplete=function(){db.close();};},function(){});}catch(e){}}
+function idbGet(){return new Promise(function(ok){idbOpen().then(function(db){var q=db.transaction('k','readonly').objectStore('k').get('state');q.onsuccess=function(){db.close();ok(q.result||null);};q.onerror=function(){ok(null);};},function(){ok(null);});});}
 function save(){
   S.updated = Date.now();
   lsSave();
@@ -308,8 +312,11 @@ function merge(obj){
   S=d;
 }
 async function initStore(){
-  var local = lsLoad();
+  try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  var local = lsLoad(), recovered=false;
+  if(!local){ try{ var bk=await idbGet(); if(bk){ var bo=JSON.parse(bk); if(bo&&(bo.sessions&&bo.sessions.length||bo.onboarded)){ local=bo; recovered=true; } } }catch(e){} }
   if(local) merge(local);
+  if(recovered){ lsSave(); setTimeout(function(){try{toast('Tes données ont été retrouvées ✅');}catch(e){}},600); }
   var dirty = ensureSeed();
   setSync('sur cet appareil');
   render();
