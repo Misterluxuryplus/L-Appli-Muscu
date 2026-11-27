@@ -1449,40 +1449,50 @@ function viewOnboard(){
 }
 
 function viewProgress(){
-  var names=exerciseNames();
-  var ws=weekStart().getTime(), vol=0, wk=0;
-  S.sessions.forEach(function(se){ if(new Date(se.date).getTime()>=ws){wk++;vol+=se.kcal||0;} });
-  (S.acts||[]).forEach(function(x){ if(new Date(x.date+'T12:00:00').getTime()>=ws){vol+=actKcal(x);} });
-  var h='<div class="grid3"><div class="stat"><div class="v">'+S.sessions.length+'</div><div class="l">séances au total</div></div>'+
-        '<div class="stat"><div class="v">'+wk+'</div><div class="l">cette semaine</div></div>'+
-        '<div class="stat"><div class="v">'+Math.round(vol)+'</div><div class="l">kcal cette semaine</div></div></div>';
-  if(!names.length) return h+'<div class="card empty" style="margin-top:12px">Ta progression apparaîtra ici après ta première séance enregistrée.</div>';
-  var sel=names.filter(function(n){return norm(n)===norm(S.sel);})[0]||names[0];
-  var pts=[],bestW=0,bestWr=0,bestE=0,hist=[];
-  var anyW=false;
-  S.sessions.forEach(function(se){
-    se.logs.forEach(function(l){
-      if(norm(l.name)!==norm(sel)) return;
-      var b=0,mr=0;
-      l.sets.forEach(function(s){
-        if(s.w>0)anyW=true;
-        var e=e1rm(s.w,s.r); if(e>b)b=e; if(s.r>mr)mr=s.r;
-        if(s.w>bestW||(s.w===bestW&&s.r>bestWr)){bestW=s.w;bestWr=s.r;}
-        if(e>bestE)bestE=e;
-      });
-      pts.push({x:new Date(se.date).getTime(),y:anyW?b:mr});
-      hist.push({date:se.date,sets:l.sets});
-    });
-  });
-  h+='<div class="card" style="margin-top:12px"><label class="f">Exercice</label><select data-sel="1">'+names.map(function(n){return '<option value="'+esc(n)+'"'+(n===sel?' selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>'+
-     '<h2 style="margin-top:14px">'+(anyW?'Ta progression (charge max estimée, kg)':'Reps max par séance')+'</h2>'+chart(pts,anyW?'kg':'reps')+'</div>';
-  h+='<div class="grid3"><div class="stat"><div class="v">'+(bestW>0?fmt(bestW)+' kg':'—')+'</div><div class="l">charge max ('+bestWr+' reps)</div></div>'+
-     '<div class="stat"><div class="v">'+(bestE>0?fmt(bestE):'—')+'</div><div class="l">meilleure charge max estimée</div></div>'+
-     '<div class="stat"><div class="v">'+hist.length+'</div><div class="l">fois réalisé</div></div></div>';
-  h+='<h2>Historique</h2>';
-  hist.slice(-6).reverse().forEach(function(x){
-    h+='<div class="card"><div class="row between"><span class="b">'+fmtDate(x.date)+'</span></div><p class="small muted" style="margin:6px 0 0">'+x.sets.map(function(s){return fmt(s.w)+' kg × '+s.r;}).join(' · ')+'</p></div>';
-  });
+  var ws0=weekStart().getTime(), wk=0;
+  S.sessions.forEach(function(se){ if(new Date(se.date).getTime()>=ws0) wk++; });
+  var goal=num(S.perWeek)||3;
+  function bar(pct,col){pct=Math.max(0,Math.min(100,pct));return '<div style="height:12px;border-radius:8px;background:var(--line,#2a2f3a);overflow:hidden;margin:10px 0 4px"><div style="height:100%;width:'+pct+'%;background:'+col+';border-radius:8px"></div></div>';}
+  var h='';
+  /* 1. Poids */
+  var ws=allWeights(), tw=num(S.targetWeight);
+  if(ws.length){
+    var w0=ws[0].w, w1=ws[ws.length-1].w, d=w1-w0;
+    var col=Math.abs(d)<0.05?'var(--muted)':(d<0?'var(--good)':'var(--bad)');
+    h+='<div class="card"><div class="muted small">⚖️ Poids</div><div style="font-size:34px;font-weight:800;color:'+col+';margin-top:4px">'+(d>0?'+':'')+fmt(d)+' kg</div>'+
+       '<div class="small muted">depuis le début : '+fmt(w0)+' → <b style="color:var(--text)">'+fmt(w1)+' kg</b></div>';
+    if(tw&&w0>tw){
+      var pc=Math.round((w0-w1)/(w0-tw)*100);
+      h+=bar(pc,'var(--good)')+'<div class="small muted">Objectif '+fmt(tw)+' kg : '+(w1<=tw?'atteint 🎉':'il te reste <b style="color:var(--text)">'+fmt(w1-tw)+' kg</b> ('+Math.max(0,pc)+' % fait)')+'</div>';
+    }
+    h+='</div>';
+  } else {
+    h+='<div class="card empty">⚖️ Ajoute ton poids dans l’onglet Corps pour voir ton évolution ici.</div>';
+  }
+  /* 2. Muscle & graisse (InBody) */
+  var comp=S.comp.slice().sort(function(a,b){return a.date<b.date?-1:1;});
+  var fl=firstLast(comp,'fat'), ml=firstLast(comp,'mus');
+  if(comp.length>1&&(fl[0]!=null||ml[0]!=null)){
+    h+='<div class="grid3" style="grid-template-columns:1fr 1fr">'+deltaStat('Graisse (kg)',fl[0],fl[1],'fat')+deltaStat('Muscle (kg)',ml[0],ml[1],'mus')+'</div>';
+  }
+  /* 3. Force globale */
+  var by={};
+  S.sessions.forEach(function(se){ se.logs.forEach(function(l){
+    var b=0; l.sets.forEach(function(x){var e=e1rm(x.w,x.r); if(e>b)b=e;});
+    if(b>0){ var k=norm(l.name); (by[k]=by[k]||[]).push(b); }
+  });});
+  var tot=0,n=0,up=0;
+  Object.keys(by).forEach(function(k){ var a=by[k]; if(a.length>=2){ var ch=(a[a.length-1]-a[0])/a[0]*100; tot+=ch; n++; if(ch>0.5)up++; } });
+  if(n){
+    var av=Math.round(tot/n), c2=av>0?'var(--good)':(av<0?'var(--bad)':'var(--muted)');
+    h+='<div class="card"><div class="muted small">💪 Force</div><div style="font-size:34px;font-weight:800;color:'+c2+';margin-top:4px">'+(av>0?'+':'')+av+' %</div>'+
+       '<div class="small muted">de charges en plus depuis ta première séance · <b style="color:var(--text)">'+up+' exercice'+(up>1?'s':'')+' sur '+n+'</b> en progrès</div></div>';
+  } else {
+    h+='<div class="card"><div class="muted small">💪 Force</div><div class="small muted" style="margin-top:6px">Après quelques séances avec tes charges notées, ta progression apparaîtra ici.</div></div>';
+  }
+  /* 4. Régularité */
+  h+='<div class="card"><div class="muted small">📅 Régularité</div><div style="font-size:34px;font-weight:800;margin-top:4px">'+wk+' / '+goal+'</div>'+
+     '<div class="small muted">séances cette semaine · '+S.sessions.length+' au total</div>'+bar(wk/goal*100,wk>=goal?'var(--good)':'var(--accent2)')+'</div>';
   return h;
 }
 var MET={
