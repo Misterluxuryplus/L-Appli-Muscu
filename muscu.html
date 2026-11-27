@@ -451,41 +451,46 @@ function bkNeeded(){
   var newer=S.sessions.some(function(x){return new Date(x.date).getTime()>t;});
   return newer;
 }
-function bkOk(){S.lastBackup=Date.now();save();render();toast('Sauvegarde faite ✅');}
-function bkCopy(txt){
+var showExpC=false;
+function bkSessTxt(){var o={};for(var k in S)o[k]=S[k];o.comp=[];return JSON.stringify(o);}
+function bkCompTxt(){return JSON.stringify(S.comp.map(function(c){return {date:c.date,w:c.w,fat:c.fat,pct:c.pct,mus:c.mus,abd:c.abd,visc:c.visc};}));}
+function mergeKeepComp(ob){var keepC=S.comp||[];merge(ob);var hv={};S.comp=(S.comp||[]).slice();S.comp.forEach(function(c){hv[c.date]=1;});keepC.forEach(function(c){if(!hv[c.date]){S.comp.push(c);hv[c.date]=1;}});S.comp.sort(function(x,y){return x.date<y.date?-1:(x.date>y.date?1:0);});}
+function bkOk(kind){ if(kind==='comp'){toast('Sauvegarde InBody faite ✅');return;} S.lastBackup=Date.now();save();render();toast('Sauvegarde de tes séances faite ✅');}
+function bkCopy(txt,kind){
+  var done=function(){ if(kind==='comp'){toast('Bilans InBody copiés : colle-les dans tes notes ou un message à toi-même.');} else {S.lastBackup=Date.now();save();render();toast('Sauvegarde copiée : colle-la dans tes notes ou un message à toi-même.');} };
+  var show=function(){ if(kind==='comp')showExpC=true; else showExp=true; render(); toast('Copie le texte affiché.'); };
   try{
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(function(){S.lastBackup=Date.now();save();render();toast('Sauvegarde copiée : colle-la dans tes notes ou un message à toi-même.');},function(){showExp=true;render();toast('Copie le texte affiché.');});
-      return;
-    }
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done,show); return; }
   }catch(e){}
-  showExp=true;render();toast('Copie le texte affiché.');
+  show();
 }
-function doBackup(){
-  var txt=JSON.stringify(S), name='appli-muscu-sauvegarde-'+ymd(new Date())+'.json';
-  var fail=function(err){ if(err&&err.name==='AbortError') return; bkCopy(txt); };
+function doBackup(kind){
+  var comp=kind==='comp', txt=comp?bkCompTxt():bkSessTxt(), name='appli-muscu-'+(comp?'inbody':'seances')+'-'+ymd(new Date())+(comp?'.txt':'.json');
+  var title=comp?'Bilans InBody - Appli Muscu':'Sauvegarde séances - Appli Muscu';
+  var ok=function(){bkOk(kind);}, fail=function(err){ if(err&&err.name==='AbortError') return; bkCopy(txt,kind); };
   try{
-    if(navigator.canShare&&window.File){
+    if(!comp&&navigator.canShare&&window.File){
       var f=new File([txt],name,{type:'application/json'});
-      if(navigator.canShare({files:[f]})){ navigator.share({files:[f],title:'Sauvegarde Appli Muscu'}).then(bkOk,fail); return; }
+      if(navigator.canShare({files:[f]})){ navigator.share({files:[f],title:title}).then(ok,fail); return; }
     }
-    if(navigator.share){ navigator.share({title:'Sauvegarde Appli Muscu',text:txt}).then(bkOk,fail); return; }
+    if(navigator.share){ navigator.share({title:title,text:txt}).then(ok,fail); return; }
   }catch(e){}
-  bkCopy(txt);
+  bkCopy(txt,kind);
 }
 var restLab='Repos', showExp=false, actx=null, beepNodes=[];
 function audioUnlock(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();}catch(e){}}
 var beepAudio=null, beepUrl=null;
 function cancelBeep(){beepNodes.forEach(function(o){try{o.stop(0);}catch(e){}});beepNodes=[];try{if(beepAudio)beepAudio.pause();if(beepUrl){URL.revokeObjectURL(beepUrl);beepUrl=null;}}catch(e){}}
+function beepPlan(sec){var p=[]; for(var i=5;i>=1;i--){ if(sec-i>=0) p.push({t:sec-i,l:0.12}); } p.push({t:sec,l:0.45}); return p;}
 function makeBeepWav(sec){
-  var R=8000, n=Math.round((sec+2.8)*R), b=new Uint8Array(44+n), dv=new DataView(b.buffer);
+  var R=8000, n=Math.round((sec+1.2)*R), b=new Uint8Array(44+n), dv=new DataView(b.buffer);
   function str(o,t){for(var i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i);}
   str(0,'RIFF'); dv.setUint32(4,36+n,true); str(8,'WAVE'); str(12,'fmt '); dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
   dv.setUint32(24,R,true); dv.setUint32(28,R,true); dv.setUint16(32,1,true); dv.setUint16(34,8,true); str(36,'data'); dv.setUint32(40,n,true);
   for(var i=0;i<n;i++) b[44+i]=128;
-  [0,0.35,0.7,1.05,1.4,1.75].forEach(function(d){
-    var st=Math.round((sec+d)*R), len=Math.round(0.24*R);
-    for(var k=0;k<len&&st+k<n;k++){ b[44+st+k]=(Math.floor(k/(R/2000))%2)?250:6; }
+  beepPlan(sec).forEach(function(x){
+    var st=Math.round(x.t*R), len=Math.round(x.l*R);
+    for(var k=0;k<len&&st+k<n;k++){ b[44+st+k]=(Math.floor(k/(R/1500))%2)?170:86; }
   });
   return new Blob([b],{type:'audio/wav'});
 }
@@ -493,7 +498,7 @@ function scheduleBeep(sec){
   cancelBeep();
   var ok=false;
   try{
-    beepUrl=URL.createObjectURL(makeBeepWav(sec)); beepAudio=beepAudio||new Audio(); beepAudio.src=beepUrl; beepAudio.volume=1;
+    beepUrl=URL.createObjectURL(makeBeepWav(sec)); beepAudio=beepAudio||new Audio(); beepAudio.src=beepUrl; beepAudio.volume=0.6;
     var pr=beepAudio.play(); if(pr&&pr.catch) pr.catch(function(){ webBeep(sec); }); ok=true;
   }catch(e){}
   if(!ok) webBeep(sec);
@@ -501,12 +506,12 @@ function scheduleBeep(sec){
 function webBeep(sec){
   if(!actx) return;
   try{
-    var t0=actx.currentTime+sec;
-    [0,0.35,0.7,1.05,1.4,1.75].forEach(function(d){
-      var o=actx.createOscillator(), g=actx.createGain();
-      o.type='square'; o.frequency.value=1500;
-      g.gain.setValueAtTime(0.0001,t0+d); g.gain.exponentialRampToValueAtTime(1,t0+d+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+d+0.22);
-      o.connect(g); g.connect(actx.destination); o.start(t0+d); o.stop(t0+d+0.25); beepNodes.push(o);
+    var t0=actx.currentTime;
+    beepPlan(sec).forEach(function(x){
+      var o=actx.createOscillator(), g=actx.createGain(), t=t0+x.t;
+      o.type='sine'; o.frequency.value=1200;
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.35,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+x.l);
+      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+x.l+0.05); beepNodes.push(o);
     });
   }catch(e){}
 }
@@ -1094,9 +1099,13 @@ function viewProg(){
        '<label class="f" style="margin-top:12px">Note de séance (cardio, échauffement…)</label><input data-pd="'+k+'" data-pf="note" value="'+esc(p.note)+'"></div>';
   });
   h+='<button class="ghost danger full" data-act="progReset">'+(armed==='progReset'?'Confirmer le nouveau programme ?':'Proposer un nouveau programme selon mon profil')+'</button></details>';
-  h+='<details class="sec" data-sec="bk"'+(openSec.bk?' open':'')+' style="margin-top:14px"><summary>💾 Sauvegarde</summary><div class="card"><p class="small muted" style="margin:0 0 10px">Dernière sauvegarde : <b style="color:var(--text)">'+bkAgo()+'</b>. Envoie-la par mail, WhatsApp ou dans tes notes : si tu changes de téléphone, tu retrouves tout.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-act="backupNow">Envoyer ma sauvegarde</button><button class="sm" data-act="expShow">'+(showExp?'Masquer le texte':'Afficher le texte')+'</button></div>'+
-     (showExp?'<textarea readonly style="width:100%;height:90px;margin-top:10px;font-size:11px">'+esc(JSON.stringify(S))+'</textarea>':'')+
-     '<label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain"><label class="f" style="margin-top:12px">Ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer</button><label class="f" style="margin-top:16px">Ajouter mes bilans InBody (colle le texte reçu)</label><textarea id="impComp" style="width:100%;height:60px;font-size:11px" placeholder="Colle ici le texte des bilans InBody"></textarea><button class="sm" style="margin-top:8px" data-act="importComp">Ajouter les bilans</button><p class="small muted" style="margin:6px 0 0">Ça ajoute seulement les bilans : tes séances ne changent pas.</p></div></details>';
+  h+='<details class="sec" data-sec="bk"'+(openSec.bk?' open':'')+' style="margin-top:14px"><summary>💾 Sauvegardes</summary>'+
+     '<div class="card"><div class="b">1) Mes séances</div><p class="small muted" style="margin:6px 0 10px">Dernière sauvegarde : <b style="color:var(--text)">'+bkAgo()+'</b>. Envoie-la par WhatsApp, mail ou dans tes notes : si tout est effacé, tu retrouves tes séances et tes charges.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-act="backupNow">Sauvegarder mes séances</button><button class="sm" data-act="expShow">'+(showExp?'Masquer le texte':'Afficher le texte')+'</button></div>'+
+     (showExp?'<textarea readonly style="width:100%;height:90px;margin-top:10px;font-size:11px">'+esc(bkSessTxt())+'</textarea>':'')+
+     '<label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain"><label class="f" style="margin-top:12px">Ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer mes séances</button><p class="small muted" style="margin:6px 0 0">Tes bilans InBody ne sont pas touchés.</p></div>'+
+     '<div class="card" style="margin-top:10px"><div class="b">2) Mes bilans InBody</div><p class="small muted" style="margin:6px 0 10px">À faire quand tu as de nouveaux bilans. Garde ce texte à part (notes, WhatsApp) : il ne change que quand tu ajoutes un bilan.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-act="backupComp">Sauvegarder mes InBody</button><button class="sm" data-act="expShowC">'+(showExpC?'Masquer le texte':'Afficher le texte')+'</button></div>'+
+     (showExpC?'<textarea readonly style="width:100%;height:90px;margin-top:10px;font-size:11px">'+esc(bkCompTxt())+'</textarea>':'')+
+     '<label class="f" style="margin-top:12px">Ajouter / restaurer mes bilans InBody (colle le texte)</label><textarea id="impComp" style="width:100%;height:60px;font-size:11px" placeholder="Colle ici le texte des bilans InBody"></textarea><button class="sm" style="margin-top:8px" data-act="importComp">Ajouter les bilans</button><p class="small muted" style="margin:6px 0 0">Ça ajoute seulement les bilans : tes séances ne changent pas.</p></div></details>';
   h+='<details class="card" style="margin-top:14px"><summary class="b" style="cursor:pointer">Effacer mes données</summary><p class="small muted" style="line-height:1.5;margin-top:10px">Efface tes séances pour repartir de zéro. Ton profil, tes pesées et tes bilans InBody sont conservés.</p>'+
      '<button class="ghost danger full" data-act="resetSessions">'+(armed==='resetSessions'?'Confirmer l’effacement ?':'Effacer mes séances et recommencer')+'</button>'+
      '<p class="small muted" style="line-height:1.5;margin:14px 0 8px">Ou tout remettre à zéro : retour à la présentation. Tout est effacé de cet appareil (profil, séances, pesées).</p>'+
@@ -1685,17 +1694,19 @@ document.addEventListener('click',function(ev){
     }
   }
   else if(a==='expShow'){showExp=!showExp;render();}
-  else if(a==='backupNow'){doBackup();}
+  else if(a==='backupNow'){doBackup('sess');}
+  else if(a==='backupComp'){doBackup('comp');}
+  else if(a==='expShowC'){showExpC=!showExpC;render();}
   else if(a==='importComp'){
     try{
-      var rows=JSON.parse(($('#impComp').value||'').trim()); if(!Array.isArray(rows)||!rows.length) throw 0;
+      var rows=JSON.parse(($('#impComp').value||'').trim()); if(rows&&!Array.isArray(rows)&&Array.isArray(rows.comp)) rows=rows.comp; if(!Array.isArray(rows)||!rows.length) throw 0;
       var have={}, added=0; S.comp.forEach(function(c){have[c.date]=1;});
       rows.forEach(function(r){ if(r&&r.date&&r.w&&!have[r.date]){ S.comp.push({id:uid(),date:r.date,w:r.w,fat:r.fat,pct:r.pct,mus:r.mus,abd:r.abd,visc:r.visc}); have[r.date]=1; added++; } });
       S.comp.sort(function(x,y){return x.date<y.date?-1:(x.date>y.date?1:0);});
       save(); render(); toast(added?added+' bilan(s) ajouté(s) ✅':'Ces bilans sont déjà dans l’appli.');
     }catch(e){toast('Texte invalide : colle tout le texte des bilans.');}
   }
-  else if(a==='importDo'){try{var ob=JSON.parse(($('#imp').value||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;merge(ob);S.draft=null;if((S.sessions&&S.sessions.length)||(S.body&&S.body.length))S.onboarded=true;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Texte invalide : colle toute la sauvegarde.');}}
+  else if(a==='importDo'){try{var ob=JSON.parse(($('#imp').value||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;mergeKeepComp(ob);S.draft=null;if((S.sessions&&S.sessions.length)||(S.body&&S.body.length))S.onboarded=true;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Texte invalide : colle toute la sauvegarde.');}}
   else if(a==='machToggle'){var mk2=t.dataset.k; if(nmach()[mk2]) delete nmach()[mk2]; else nmach()[mk2]=1; applyAvail(S.program); save(); render();}
   else if(a==='delset'){i=+t.dataset.ex;var arr2=S.draft.ex[i].sets;if(arr2.length>1){arr2.pop();save();render();}}
   else if(a==='addset'){i=+t.dataset.ex;var arr=S.draft.ex[i].sets,lastS=arr[arr.length-1];arr.push({w:lastS?lastS.w:'',r:'',done:false});save();render();}
@@ -1830,7 +1841,7 @@ document.addEventListener('change',function(ev){
   var t=ev.target;
   if(t.id==='impFile'&&t.files&&t.files[0]){
     var fr=new FileReader();
-    fr.onload=function(){try{var ob=JSON.parse(String(fr.result||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;merge(ob);S.draft=null;if((S.sessions&&S.sessions.length)||(S.body&&S.body.length))S.onboarded=true;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Fichier invalide.');}};
+    fr.onload=function(){try{var ob=JSON.parse(String(fr.result||'').trim());if(!ob||!ob.program||!ob.sessions)throw 0;mergeKeepComp(ob);S.draft=null;if((S.sessions&&S.sessions.length)||(S.body&&S.body.length))S.onboarded=true;save();render();toast('Sauvegarde restaurée ✅');}catch(e){toast('Fichier invalide.');}};
     fr.readAsText(t.files[0]); return;
   }
   if(t.dataset.rs){S[t.dataset.rs]=parseInt(t.value,10)||60;save();}
