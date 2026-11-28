@@ -286,11 +286,72 @@ var LS_KEY = 'appli-muscu-v1';
 var ref = null, saveTimer = null, syncMsg = 'sur cet appareil';
 function setSync(m){syncMsg=m;var el=$('#sync');if(el)el.textContent=m;}
 function lsLoad(){try{var t=localStorage.getItem(LS_KEY);return t?JSON.parse(t):null;}catch(e){return null;}}
-function lsSave(){var j=JSON.stringify(S);try{localStorage.setItem(LS_KEY,j);}catch(e){} idbPut(j);}
+function lsSave(){var j=JSON.stringify(S);try{localStorage.setItem(LS_KEY,j);}catch(e){} idbPut(j); try{clSync();}catch(e){}}
 /* copie de sécurité dans IndexedDB (survit si le stockage normal est effacé par une autre appli du même site) */
 function idbOpen(){return new Promise(function(ok,ko){try{var r=indexedDB.open('appli-muscu-safe',1);r.onupgradeneeded=function(){r.result.createObjectStore('k');};r.onsuccess=function(){ok(r.result);};r.onerror=function(){ko();};}catch(e){ko();}});}
-function idbPut(j){try{idbOpen().then(function(db){var t=db.transaction('k','readwrite');t.objectStore('k').put(j,'state');t.oncomplete=function(){db.close();};},function(){});}catch(e){}}
-function idbGet(){return new Promise(function(ok){idbOpen().then(function(db){var q=db.transaction('k','readonly').objectStore('k').get('state');q.onsuccess=function(){db.close();ok(q.result||null);};q.onerror=function(){ok(null);};},function(){ok(null);});});}
+function idbPut(j,key){try{idbOpen().then(function(db){var t=db.transaction('k','readwrite');t.objectStore('k').put(j,key||'state');t.oncomplete=function(){db.close();};},function(){});}catch(e){}}
+function idbGet(key){return new Promise(function(ok){idbOpen().then(function(db){var q=db.transaction('k','readonly').objectStore('k').get(key||'state');q.onsuccess=function(){db.close();ok(q.result||null);};q.onerror=function(){ok(null);};},function(){ok(null);});});}
+
+/* ---------- sauvegarde automatique : gist privé GitHub ---------- */
+var CL_KEY='appli-muscu-cloud', CL_DESC='Appli Muscu sauvegarde', clTimer=null, clMsg='';
+function clGet(){try{return JSON.parse(localStorage.getItem(CL_KEY)||'null');}catch(e){return null;}}
+function clSet(o){var j=JSON.stringify(o);try{localStorage.setItem(CL_KEY,j);}catch(e){} idbPut(j,'cloud');}
+function clClear(){try{localStorage.removeItem(CL_KEY);}catch(e){} idbPut('null','cloud');}
+function clHead(tok){return {'Authorization':'token '+tok,'Accept':'application/vnd.github+json','Content-Type':'application/json'};}
+function clFiles(){return {'muscu-seances.json':{content:bkSessTxt()},'muscu-inbody.json':{content:bkCompTxt()}};}
+function clFind(tok){
+  return fetch('https://api.github.com/gists?per_page=100',{headers:clHead(tok)}).then(function(r){ if(r.status===401) throw 'auth'; if(!r.ok) throw 'net'; return r.json(); }).then(function(l){
+    var g=(l||[]).filter(function(x){return x.description===CL_DESC;})[0]; return g?g.id:null; });
+}
+function clSync(){
+  var c=clGet(); if(!c||!c.token||!c.gid) return;
+  if(c.last>0&&!(S.sessions&&S.sessions.length)){ clMsg='Tes données locales sont vides : la sauvegarde GitHub est protégée. Appuie sur « Restaurer depuis GitHub ».'; clRefresh(); return; }
+  clearTimeout(clTimer);
+  clTimer=setTimeout(function(){
+    fetch('https://api.github.com/gists/'+c.gid,{method:'PATCH',headers:clHead(c.token),body:JSON.stringify({files:clFiles()})}).then(function(r){
+      if(!r.ok) throw r.status; c.last=Date.now(); clSet(c); clMsg=''; clRefresh();
+    },function(){ clMsg='Pas de connexion : sera réessayé à la prochaine sauvegarde.'; clRefresh(); }).catch(function(){ clMsg='Erreur de synchronisation. Vérifie ton code GitHub.'; clRefresh(); });
+  },3000);
+}
+function clRefresh(){var el=$('#clStat'); if(el) el.innerHTML=clStatus();}
+function clStatus(){
+  var c=clGet(); if(!c||!c.gid) return '';
+  var t=c.last?new Date(c.last):null;
+  return '✅ Active · dernière synchro : <b>'+(t?t.toLocaleDateString('fr-FR')+' '+t.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'en attente')+'</b>'+(clMsg?'<br><span style="color:var(--bad)">'+esc(clMsg)+'</span>':'');
+}
+function clSetup(tok){
+  tok=String(tok||'').trim(); if(!tok){toast('Colle ton code GitHub.');return;}
+  toast('Connexion…');
+  var existing=false;
+  clFind(tok).then(function(gid){
+    if(gid){ existing=true; return gid; }
+    return fetch('https://api.github.com/gists',{method:'POST',headers:clHead(tok),body:JSON.stringify({description:CL_DESC,public:false,files:clFiles()})}).then(function(r){ if(!r.ok) throw (r.status===401?'auth':'net'); return r.json(); }).then(function(g){return g.id;});
+  }).then(function(gid){
+    var emptyLocal=!(S.sessions&&S.sessions.length);
+    clSet({token:tok,gid:gid,last:(existing&&emptyLocal)?1:0}); clMsg=''; clSync(); render();
+    toast(existing&&emptyLocal?'Sauvegarde trouvée sur GitHub : appuie sur « Restaurer depuis GitHub ».':'Sauvegarde automatique activée ✅');
+  },function(e){ toast(e==='auth'?'Code GitHub refusé : vérifie-le (case « gist » cochée).':'Pas de connexion à GitHub. Réessaie.'); });
+}
+function clAddComp(rows){
+  var have={}; S.comp.forEach(function(c){have[c.date]=1;});
+  (rows||[]).forEach(function(r){ if(r&&r.date&&r.w&&!have[r.date]){ S.comp.push({id:uid(),date:r.date,w:r.w,fat:r.fat,pct:r.pct,mus:r.mus,abd:r.abd,visc:r.visc}); have[r.date]=1; } });
+  S.comp.sort(function(x,y){return x.date<y.date?-1:(x.date>y.date?1:0);});
+}
+function clRestore(tok){
+  tok=String(tok||'').trim(); if(!tok){toast('Colle ton code GitHub.');return;}
+  toast('Recherche de ta sauvegarde…');
+  clFind(tok).then(function(gid){
+    if(!gid) throw 'none';
+    return fetch('https://api.github.com/gists/'+gid,{headers:clHead(tok)}).then(function(r){ if(!r.ok) throw 'net'; return r.json(); }).then(function(g){
+      var f=g.files||{}, sx=f['muscu-seances.json'], ix=f['muscu-inbody.json'];
+      if(!sx||!sx.content) throw 'none';
+      var ob=JSON.parse(sx.content); if(!ob||!ob.program||!ob.sessions) throw 'none';
+      mergeKeepComp(ob);
+      if(ix&&ix.content){ try{ clAddComp(JSON.parse(ix.content)); }catch(e){} }
+      S.draft=null; S.onboarded=true; clSet({token:tok,gid:gid,last:Date.now()}); save(); render(); toast('Sauvegarde GitHub restaurée ✅');
+    });
+  }).catch(function(e){ toast(e==='auth'?'Code GitHub refusé.':(e==='none'?'Aucune sauvegarde trouvée sur ce compte.':'Pas de connexion à GitHub. Réessaie.')); });
+}
 function save(){
   S.updated = Date.now();
   lsSave();
@@ -313,6 +374,7 @@ function merge(obj){
 }
 async function initStore(){
   try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  try{ if(!clGet()){ var cj=await idbGet('cloud'); if(cj&&cj!=='null'){ localStorage.setItem(CL_KEY,cj); } } }catch(e){}
   var local = lsLoad(), recovered=false;
   if(!local){ try{ var bk=await idbGet(); if(bk){ var bo=JSON.parse(bk); if(bo&&(bo.sessions&&bo.sessions.length||bo.onboarded)){ local=bo; recovered=true; } } }catch(e){} }
   if(local) merge(local);
@@ -440,6 +502,11 @@ function toast(msg){var t=$('#toast');t.textContent=msg;t.style.display='block';
 function confirmTwice(key){
   if(armed===key){armed=null;clearTimeout(armedTimer);return true;}
   armed=key;clearTimeout(armedTimer);armedTimer=setTimeout(function(){armed=null;render();},3500);render();return false;
+}
+function clCard(){
+  var c=clGet();
+  if(c&&c.gid) return '<div class="card" style="margin-top:10px"><div class="b">3) Sauvegarde automatique (GitHub)</div><p class="small" id="clStat" style="margin:6px 0 10px">'+clStatus()+'</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-act="clNow">Synchroniser maintenant</button><button class="sm" data-act="clRest">Restaurer depuis GitHub</button><button class="sm ghost danger" data-act="clOff">Désactiver</button></div><p class="small muted" style="margin:8px 0 0">Tes séances et bilans sont copiés dans un gist privé de ton compte GitHub après chaque enregistrement.</p></div>';
+  return '<div class="card" style="margin-top:10px"><div class="b">3) Sauvegarde automatique (GitHub)</div><p class="small muted" style="margin:6px 0 10px">Une fois configurée, tes séances et bilans sont sauvegardés tout seuls dans un gist privé de ton compte GitHub. Colle ici ton code d’accès GitHub (voir les étapes que je t’ai données).</p><input type="password" id="clTok" autocomplete="off" placeholder="ghp_…" style="width:100%"><div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button class="sm primary" data-act="clOn">Activer</button><button class="sm" data-act="clRest">Restaurer depuis GitHub</button></div></div>';
 }
 function bkAgo(){
   var t=S.lastBackup||0; if(!t) return 'jamais';
@@ -1110,7 +1177,7 @@ function viewProg(){
      '<label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain"><label class="f" style="margin-top:12px">Ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer mes séances</button><p class="small muted" style="margin:6px 0 0">Tes bilans InBody ne sont pas touchés.</p></div>'+
      '<div class="card" style="margin-top:10px"><div class="b">2) Mes bilans InBody</div><p class="small muted" style="margin:6px 0 10px">À faire quand tu as de nouveaux bilans. Garde ce texte à part (notes, WhatsApp) : il ne change que quand tu ajoutes un bilan.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="sm primary" data-act="backupComp">Sauvegarder mes InBody</button><button class="sm" data-act="expShowC">'+(showExpC?'Masquer le texte':'Afficher le texte')+'</button></div>'+
      (showExpC?'<textarea readonly style="width:100%;height:90px;margin-top:10px;font-size:11px">'+esc(bkCompTxt())+'</textarea>':'')+
-     '<label class="f" style="margin-top:12px">Ajouter / restaurer mes bilans InBody (colle le texte)</label><textarea id="impComp" style="width:100%;height:60px;font-size:11px" placeholder="Colle ici le texte des bilans InBody"></textarea><button class="sm" style="margin-top:8px" data-act="importComp">Ajouter les bilans</button><p class="small muted" style="margin:6px 0 0">Ça ajoute seulement les bilans : tes séances ne changent pas.</p></div></details>';
+     '<label class="f" style="margin-top:12px">Ajouter / restaurer mes bilans InBody (colle le texte)</label><textarea id="impComp" style="width:100%;height:60px;font-size:11px" placeholder="Colle ici le texte des bilans InBody"></textarea><button class="sm" style="margin-top:8px" data-act="importComp">Ajouter les bilans</button><p class="small muted" style="margin:6px 0 0">Ça ajoute seulement les bilans : tes séances ne changent pas.</p></div>'+clCard()+'</details>';
   h+='<details class="card" style="margin-top:14px"><summary class="b" style="cursor:pointer">Effacer mes données</summary><p class="small muted" style="line-height:1.5;margin-top:10px">Efface tes séances pour repartir de zéro. Ton profil, tes pesées et tes bilans InBody sont conservés.</p>'+
      '<button class="ghost danger full" data-act="resetSessions">'+(armed==='resetSessions'?'Confirmer l’effacement ?':'Effacer mes séances et recommencer')+'</button>'+
      '<p class="small muted" style="line-height:1.5;margin:14px 0 8px">Ou tout remettre à zéro : retour à la présentation. Tout est effacé de cet appareil (profil, séances, pesées).</p>'+
@@ -1464,7 +1531,7 @@ function viewOnboard(){
   if(obStep===0){
     var wv=obW!==null?obW:(curWeight()!=null?String(curWeight()).replace('.',','):'');
     h+='<div class="card"><div class="big" style="font-size:26px">Bienvenue 👋</div><p class="muted" style="margin:6px 0 14px">On fait connaissance en 1 minute.</p><label class="f">Ton prénom</label><input data-pr="name" value="'+esc(pr.name)+'" placeholder="Ton prénom"><div style="margin-top:12px"><label class="f">Ton poids actuel (kg)</label><input inputmode="decimal" data-ob="w" value="'+esc(wv)+'" placeholder="ex. 104"></div></div>'+
-      '<details class="card" style="margin-top:12px"><summary class="b">💾 J’ai déjà une sauvegarde</summary><label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain,*/*"><label class="f" style="margin-top:12px">… ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer</button></details>';
+      '<details class="card" style="margin-top:12px"><summary class="b">💾 J’ai déjà une sauvegarde</summary><label class="f" style="margin-top:12px">Restaurer depuis un fichier</label><input type="file" id="impFile" accept=".json,application/json,text/plain,*/*"><label class="f" style="margin-top:12px">… ou colle ta sauvegarde ici</label><textarea id="imp" style="width:100%;height:70px;font-size:11px" placeholder="Colle le texte de ta sauvegarde"></textarea><button class="sm" style="margin-top:8px" data-act="importDo">Restaurer</button><label class="f" style="margin-top:14px">… ou depuis GitHub (colle ton code d’accès)</label><input type="password" id="clTok0" autocomplete="off" placeholder="ghp_…" style="width:100%"><button class="sm" style="margin-top:8px" data-act="clRest0">Restaurer depuis GitHub</button></details>';
   } else if(obStep===1){
     h+='<div class="card"><div class="b" style="font-size:18px">Ton objectif</div><div class="seg" style="margin-top:10px;flex-direction:column">'+GOALS.map(function(o){return '<button class="'+(pr.goal===o[0]?'on':'')+'" data-act="obset" data-f="goal" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div><p class="small muted" style="margin:10px 0 0">'+GD[pr.goal||'both']+'</p>'+
        '<div class="b" style="font-size:18px;margin-top:18px">Ton niveau</div><div class="seg" style="margin-top:10px">'+LV.map(function(o){return '<button class="'+(pr.level===o[0]?'on':'')+'" data-act="obset" data-f="level" data-v="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div><p class="small muted" style="margin:10px 0 0">'+LD[pr.level||'novice']+'</p></div>';
@@ -1713,6 +1780,11 @@ document.addEventListener('click',function(ev){
   else if(a==='expShow'){showExp=!showExp;render();}
   else if(a==='backupNow'){doBackup('sess');}
   else if(a==='backupComp'){doBackup('comp');}
+  else if(a==='clOn'){clSetup(($('#clTok')||{}).value);}
+  else if(a==='clRest'){var cc=clGet(); clRestore(($('#clTok')&&$('#clTok').value)||(cc&&cc.token)||'');}
+  else if(a==='clNow'){clSync();toast('Synchronisation en cours…');}
+  else if(a==='clOff'){if(confirmTwice('clOff')){clClear();render();toast('Sauvegarde automatique désactivée.');}}
+  else if(a==='clRest0'){clRestore(($('#clTok0')||{}).value);}
   else if(a==='expShowC'){showExpC=!showExpC;render();}
   else if(a==='importComp'){
     try{
