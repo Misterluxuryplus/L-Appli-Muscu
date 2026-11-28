@@ -586,7 +586,7 @@ function viewToday(){
   if(ml.length){
     var mk=ml[0], mkey=pm[mk], mp=S.program[mkey];
     if(mp) h+='<div class="card" style="border-color:var(--bad)"><div class="b">⚠️ '+esc(mp.name)+' manquée</div>'+
-       (homeMove===mk?homeMovePick(mk):'<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm primary" data-act="start" data-day="'+mkey+'">Maintenant</button><button class="sm" data-act="missTom" data-date="'+mk+'">Demain</button><button class="sm" data-act="homeMove" data-date="'+mk+'">Choisir un jour</button></div>')+
+       (homeMove===mk?homeMovePick(mk):'<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="sm primary" data-act="start" data-day="'+mkey+'">Maintenant</button><button class="sm" data-act="missTom" data-date="'+mk+'">📅 Décaler (auto)</button><button class="sm" data-act="homeMove" data-date="'+mk+'">✋ Choisir un jour</button></div>')+
        (ml.length>1?'<p class="small muted" style="margin:8px 0 0">+ '+(ml.length-1)+' autre(s) dans le Planning</p>':'')+'</div>';
   }
   var doneTk=tk&&agoTxt(lastTime(tk))==='aujourd’hui', nd=calib?(nextCalibKey()||nextDay()):((tk&&S.program[tk]&&!doneTk)?tk:nextDay()), p=S.program[nd];
@@ -604,7 +604,7 @@ function viewToday(){
      '<p class="small muted" style="margin:0 0 4px">Dernière fois : '+agoTxt(lastTime(nd))+'</p>'+
      '<p class="small muted" style="margin:0 0 8px">'+p.ex.map(function(e){return esc(e.name);}).join(' · ')+'</p>'+
      (calib?'<p class="small" style="margin:0 0 12px">'+cm.x+'</p>':'<div class="tip" style="margin:6px 0 10px">'+coachFocus(p)+(cm.x?'<div class="muted" style="margin-top:6px">'+cm.x+'</div>':'')+'</div>'+coverHtml(p))+'<div style="height:10px"></div>'+
-     '<button class="primary full" style="padding:16px;font-size:19px;min-height:58px" data-act="start" data-day="'+nd+'">'+(calib?'Commencer le test':'Commencer la séance')+'</button>'+((!calib&&S.plan&&tk===nd&&!doneTk)?(homeMove===ymd(new Date())?homeMovePick(ymd(new Date())):'<div class="row" style="gap:6px;margin-top:8px"><button class="ghost" style="flex:1" data-act="skipToday" data-date="'+ymd(new Date())+'">Pas aujourd’hui → demain</button><button class="ghost" style="flex:1" data-act="homeMove" data-date="'+ymd(new Date())+'">Choisir un jour</button></div>'):'')+'</div>';
+     '<button class="primary full" style="padding:16px;font-size:19px;min-height:58px" data-act="start" data-day="'+nd+'">'+(calib?'Commencer le test':'Commencer la séance')+'</button>'+((!calib&&S.plan&&tk===nd&&!doneTk)?(homeMove===ymd(new Date())?homeMovePick(ymd(new Date())):'<div class="row" style="gap:6px;margin-top:8px"><button class="ghost" style="flex:1" data-act="skipToday" data-date="'+ymd(new Date())+'">📅 Décaler (auto)</button><button class="ghost" style="flex:1" data-act="homeMove" data-date="'+ymd(new Date())+'">✋ Choisir un jour</button></div>'):'')+'</div>';
   var others=progKeys().filter(function(k){return k!==nd;});
   if(others.length){
     h+='<h2>Autres séances</h2>';
@@ -1233,6 +1233,18 @@ function postponeSession(m,T){
 function isTT(d){ return (S.tt||[]).indexOf((d.getDay()+6)%7)>=0; }
 function nextNonTT(d0){ var d=d0, n=0; while(isTT(d)&&n<7){ d=addDays(d,1); n++; } return ymd(d); }
 function ttNote(){ var t=(S.tt||[]); return t.length?'🏓 Je évite '+t.map(function(i){return DOW[i];}).join(' et ')+' (tennis de table).':''; }
+function autoDay(m){
+  var pm=plannedMap(), dn=doneByDate(), ex=S.extras||{}, today=new Date(); today.setHours(12,0,0,0);
+  function occ(d){ return (pm[d]&&d!==m)||(dn[d]&&dn[d].length)||ex[d]; }
+  var fb=null;
+  for(var i=1;i<=28;i++){
+    var dd=addDays(today,i), d=ymd(dd);
+    if(isTT(dd)||occ(d)) continue;
+    if(!fb) fb=d;
+    if(!occ(ymd(addDays(dd,-1)))) return d;
+  }
+  return fb||ymd(addDays(today,1));
+}
 function homeMovePick(k){
   var today=ymd(new Date());
   return '<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center"><span class="small">Quel jour ?</span><input type="date" id="homeDate" min="'+today+'" value="'+nextNonTT(addDays(new Date(),1))+'"><button class="sm primary" data-act="homeMoveOk" data-date="'+k+'">OK</button><button class="sm ghost" data-act="homeMoveCancel">✕</button></div><p class="small muted" style="margin:6px 0 0">Les séances suivantes se décalent toutes seules.'+(ttNote()?' '+ttNote():'')+'</p>';
@@ -1763,7 +1775,7 @@ document.addEventListener('click',function(ev){
     var hn=postponeSession(hs,hd), hr=reflowDates([hn]); homeMove=null; save(); render();
     toast('Séance décalée au '+fmtDate(hn)+' ✅ Les suivantes sont décalées automatiquement.'+(hr?' Planning réorganisé.':''));
   }
-  else if(a==='missTom'||a==='skipToday'){var tn=postponeSession(t.dataset.date,ymd(addDays(new Date(),1)));var rf3=reflowDates([tn]);save();render();toast('Séance reportée au '+fmtDate(tn)+' ✅ Les suivantes sont décalées automatiquement.'+(rf3?' Planning réorganisé.':''));}
+  else if(a==='missTom'||a==='skipToday'){var tn=postponeSession(t.dataset.date,autoDay(t.dataset.date));var rf3=reflowDates([tn]);save();render();toast('Séance décalée au '+fmtDate(tn)+' ✅ Les suivantes sont décalées automatiquement.'+(rf3?' Planning réorganisé.':''));}
   else if(a==='obdays'){var nn=+t.dataset.n;S.plan.days=DAYMAP[nn]||DAYMAP[3];S.perWeek=nn;S.moves={};S.over={};S.fix={};S.pin={};save();render();}
   else if(a==='obNext'){obStep=Math.min(3,obStep+1);render();window.scrollTo(0,0);}
   else if(a==='obPrev'){obStep=Math.max(0,obStep-1);render();window.scrollTo(0,0);}
