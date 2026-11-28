@@ -343,7 +343,7 @@ async function initStore(){
 }
 
 /* ---------- historique ---------- */
-var STACK={'tirage vertical':[5,12,19,26,33,40,47,57,67,77,87,97,107,117,127],'rowing machine':[5,15,25,35,45,55,65,75,85,95,105,115,125,135,145],'développé épaules machine':[5,10,15,20,25,30,35,40,45,50,55,60,65,70,75],'élévations latérales haltères':[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],'élévations latérales machine':[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],'extension triceps poulie':[2.5,5,7.5,10,12.5,15,17.5,21,24.5,28,31.5,35,38.5,42,45.5]};
+var STACK={'tirage vertical':[5,12,19,26,33,40,47,57,67,77,87,97,107,117,127],'leg curl assis':[5,12,19,26,33,40,47,57,67,77,87,97,107,117,127],'rowing machine':[5,15,25,35,45,55,65,75,85,95,105,115,125,135,145],'développé épaules machine':[5,10,15,20,25,30,35,40,45,50,55,60,65,70,75],'élévations latérales haltères':[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],'élévations latérales machine':[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30],'extension triceps poulie':[2.5,5,7.5,10,12.5,15,17.5,21,24.5,28,31.5,35,38.5,42,45.5]};
 function stackOf(name){return STACK[norm(name)]||null;}
 function nextUp(name,w){var st=stackOf(name); if(!st) return w+2.5; for(var i=0;i<st.length;i++){ if(st[i]>w+0.01) return st[i]; } return st[st.length-1];}
 function nextDown(name,w){var st=stackOf(name); if(!st) return w-2.5; for(var i=st.length-1;i>=0;i--){ if(st[i]<w-0.01) return st[i]; } return st[0];}
@@ -369,8 +369,9 @@ function bestBefore(name){
   S.sessions.forEach(function(se){ se.logs.forEach(function(l){ if(norm(l.name)===key) l.sets.forEach(function(s){ best=Math.max(best,e1rm(s.w,s.r)); }); }); });
   return best;
 }
-function progKeys(){return Object.keys(S.program).filter(function(k){return k!=='BONUS';});}
+function progKeys(){return Object.keys(S.program).filter(function(k){return k!=='BONUS'&&k!=='SHORT';});}
 function ensureBonus(){
+  if(S.program&&!S.program.SHORT) S.program.SHORT={name:'Séance express (corps entier, 30 min)',note:'Séance courte quand tu manques de temps : 4 exercices, 2 séries chacun, puis 15 min de tapis.',ex:[ex('Presse à cuisses',2,'10-12'),ex('Développé couché Smith machine',2,'10-12'),ex('Tirage vertical',2,'10-12'),ex('Relevé de genoux chaise romaine',2,'10-15')]};
   if(S.program&&!S.program.BONUS) S.program.BONUS={name:'Séance Bonus (bras, épaules, abdos)',note:'Séance légère en plus : 2 séries par exercice. Finis par le cardio.',ex:[ex('Curl pupitre barre EZ',2,'12-15'),ex('Extension triceps poulie',2,'12-15'),ex('Élévations latérales machine',2,'15'),ex('Relevé de genoux chaise romaine',2,'10-15')]};
 }
 function lastTime(k){var t=0;S.sessions.forEach(function(x){if(x.day===k){var d=new Date(x.date).getTime();if(d>t)t=d;}});return t;}
@@ -615,6 +616,10 @@ function viewToday(){
   if(!calib&&S.program.BONUS){
     var wcb=weekCover(), goalDone=S.perWeek&&wcb.wd>=S.perWeek, bq=S.program.BONUS;
     h+='<div class="card" style="border-left:6px solid '+sCol(bq.name)+(goalDone?';border-color:var(--good)':'')+'"><div class="b" style="font-size:18px">'+sIc(bq.name)+esc(bq.name)+(goalDone?' <span class="pill">conseillée</span>':'')+'</div><p class="small muted" style="margin:4px 0 8px">'+(goalDone?'Ton objectif de la semaine est atteint 🎉 Tu as envie d’en faire plus ? Voici une séance légère qui complète ton programme sans te surcharger.':'Pour une séance en plus : légère (2 séries), elle complète ton programme sans te surcharger.')+'</p><button class="sm primary" data-act="start" data-day="BONUS">Commencer la séance bonus</button></div>';
+  }
+  if(!calib&&S.program.SHORT){
+    var sq=S.program.SHORT;
+    h+='<div class="card" style="border-left:6px solid '+sCol(sq.name)+'"><div class="b" style="font-size:18px">⏱️ '+esc(sq.name)+'</div><p class="small muted" style="margin:4px 0 8px">Pas beaucoup de temps ? 4 exercices, 2 séries chacun, puis 15 min de tapis. Environ 30 minutes en tout.</p><button class="sm primary" data-act="start" data-day="SHORT">Commencer la séance express</button></div>';
   }
   h+='<p class="small" style="text-align:center;margin-top:14px"><a href="#" data-act="tab" data-tab="guide" style="color:var(--accent2)">📘 Comment trouver ses charges ?</a></p>';
   return h;
@@ -962,7 +967,7 @@ function updateKcal(){
   var c=$('#netK'); if(c) c.textContent='dont ≈ '+t.net+' kcal en plus du repos';
 }
 var BW={'relevé de genoux chaise romaine':1,'extension lombaires banc':1};
-var PLATE={'crunch machine':1,'développé couché smith machine':1,'mollets assis machine':1,'presse à cuisses':1,'développé couché machine':1,'développé incliné machine':1,'hack squat machine':1,'curl pupitre barre ez':1};
+var PLATE={'crunch machine':1,'développé couché smith machine':1,'mollets assis machine':1,'presse à cuisses':1,'développé couché machine':1,'développé incliné machine':1,'développé décliné machine':1,'hack squat machine':1,'curl pupitre barre ez':1};
 function platesTxt(total){
   var side=Math.round(total/2*100)/100, rest=side, out=[], P=[20,10,5,2.5,1.25];
   if(!(side>0)) return '';
@@ -1403,7 +1408,7 @@ function viewCal(){
     } else if(!ds.length){
       if(calAdd===k){
         var dk=nextKeyAround(k);
-        inner+='<label class="f">Quelle séance ?</label><select id="calKey">'+progKeys().concat(S.program.BONUS?['BONUS']:[]).map(function(kk){return '<option value="'+kk+'"'+(kk===dk?' selected':'')+'>'+esc(S.program[kk].name)+'</option>';}).join('')+'</select>'+
+        inner+='<label class="f">Quelle séance ?</label><select id="calKey">'+progKeys().concat(S.program.BONUS?['BONUS']:[]).concat(S.program.SHORT?['SHORT']:[]).map(function(kk){return '<option value="'+kk+'"'+(kk===dk?' selected':'')+'>'+esc(S.program[kk].name)+'</option>';}).join('')+'</select>'+
                '<div class="row" style="margin-top:8px"><button class="sm primary" data-act="calAddOk" data-date="'+k+'">Ajouter</button><button class="sm ghost" data-act="calAddCancel">✕</button></div>';
       } else inner+=((S.acts||[]).some(function(x){return x.date===k;})?'':'<div class="muted small">Repos 😴</div>')+(k>=today?'<button class="sm ghost" data-act="calAdd" data-date="'+k+'" style="margin-top:6px">＋ Ajouter une séance</button>':'');
     }
@@ -1615,7 +1620,7 @@ function startSession(day){
     var w0=info?(deload?(stackOf(e.name)?snapW(e.name,info.suggW*0.9):Math.max(2.5,Math.round(info.suggW*0.9/2.5)*2.5)):info.suggW):'';
     for(var i=0;i<n;i++) sets.push({w:(info&&w0>0)?String(w0).replace('.',','):'',r:'',done:false});
     return {name:e.name,target:e.sets+'×'+e.reps,info:info,sets:sets};
-  }),tm:{min:S.cardioMin||30,kcal:'',type:S.tm.type||'tapis'},gym:''};
+  }),tm:{min:(day==='SHORT'?15:(S.cardioMin||30)),kcal:'',type:S.tm.type||'tapis'},gym:''};
   save(); render(); window.scrollTo(0,0);
 }
 function finishSession(){
