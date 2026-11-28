@@ -672,22 +672,16 @@ function viewToday(){
      '<p class="small muted" style="margin:0 0 8px">'+p.ex.map(function(e){return esc(e.name);}).join(' · ')+'</p>'+
      (calib?'<p class="small" style="margin:0 0 12px">'+cm.x+'</p>':'<div class="tip" style="margin:6px 0 10px">'+coachFocus(p)+(cm.x?'<div class="muted" style="margin-top:6px">'+cm.x+'</div>':'')+'</div>'+coverHtml(p))+'<div style="height:10px"></div>'+
      '<button class="primary full" style="padding:16px;font-size:19px;min-height:58px" data-act="start" data-day="'+nd+'">'+(calib?'Commencer le test':'Commencer la séance')+'</button>'+((!calib&&S.plan&&tk===nd&&!doneTk)?(homeMove===ymd(new Date())?homeMovePick(ymd(new Date())):'<div class="row" style="gap:6px;margin-top:8px"><button class="ghost" style="flex:1" data-act="skipToday" data-date="'+ymd(new Date())+'">📅 Décaler (auto)</button><button class="ghost" style="flex:1" data-act="homeMove" data-date="'+ymd(new Date())+'">✋ Choisir un jour</button></div>'):'')+'</div>';
-  var others=progKeys().filter(function(k){return k!==nd;});
-  if(others.length){
-    h+='<h2>Autres séances</h2>';
-    others.forEach(function(k){
-      var q=S.program[k], sc=sessionCalib(k);
-      h+='<div class="card row between" style="padding:12px 14px;border-left:6px solid '+sCol(q.name)+'"><div><div class="b" style="font-size:18px">'+sIc(q.name)+esc(q.name)+'</div><div class="small muted">'+(calib?(sc.done>=sc.total?'✓ testée':sc.done+' / '+sc.total+' machines'):q.ex.length+' exercices · dernière fois : '+agoTxt(lastTime(k)))+'</div></div><button class="sm" data-act="start" data-day="'+k+'">Commencer</button></div>';
-    });
-  }
-  if(!calib&&S.program.BONUS){
-    var wcb=weekCover(), goalDone=S.perWeek&&wcb.wd>=S.perWeek, bq=S.program.BONUS;
-    h+='<div class="card" style="border-left:6px solid '+sCol(bq.name)+(goalDone?';border-color:var(--good)':'')+'"><div class="b" style="font-size:18px">'+sIc(bq.name)+esc(bq.name)+(goalDone?' <span class="pill">conseillée</span>':'')+'</div><p class="small muted" style="margin:4px 0 8px">'+(goalDone?'Ton objectif de la semaine est atteint 🎉 Tu as envie d’en faire plus ? Voici une séance légère qui complète ton programme sans te surcharger.':'Pour une séance en plus : légère (2 séries), elle complète ton programme sans te surcharger.')+'</p><button class="sm primary" data-act="start" data-day="BONUS">Commencer la séance bonus</button></div>';
-  }
-  if(!calib&&S.program.SHORT){
-    var sq=S.program.SHORT;
-    h+='<div class="card" style="border-left:6px solid '+sCol(sq.name)+'"><div class="b" style="font-size:18px">⏱️ '+esc(sq.name)+'</div><p class="small muted" style="margin:4px 0 8px">Pas beaucoup de temps ? 4 exercices, 2 séries chacun, puis 15 min de tapis. Environ 30 minutes en tout.</p><button class="sm primary" data-act="start" data-day="SHORT">Commencer la séance express</button></div>';
-  }
+  /* une seule carte principale ; tout le reste est rangé dans un menu fermé */
+  var others=progKeys().filter(function(k){return k!==nd;}), rows='';
+  function row(name,sub,key,ic){ return '<div class="row between" style="padding:10px 0;border-top:1px solid var(--line,#e5e7eb)"><div style="min-width:0"><div class="b">'+ic+esc(name)+'</div><div class="small muted">'+sub+'</div></div><button class="sm" data-act="start" data-day="'+key+'">Commencer</button></div>'; }
+  others.forEach(function(k){
+    var q=S.program[k], sc=sessionCalib(k);
+    rows+=row(q.name,(calib?(sc.done>=sc.total?'✓ testée':sc.done+' / '+sc.total+' machines'):q.ex.length+' exercices · dernière fois : '+agoTxt(lastTime(k))),k,sIc(q.name));
+  });
+  if(!calib&&S.program.SHORT) rows+=row('Séance express','Pas le temps ? 4 exercices + 15 min de tapis (≈ 30 min)','SHORT','⏱️ ');
+  if(!calib&&S.program.BONUS) rows+=row('Séance bonus','Séance légère en plus : bras, épaules, abdos','BONUS','➕ ');
+  if(rows) h+='<details class="sec" data-sec="oth"'+(openSec.oth?' open':'')+' style="margin-top:14px"><summary>Faire une autre séance</summary><div class="card" style="padding:4px 14px 8px">'+rows+'</div></details>';
   h+='<p class="small" style="text-align:center;margin-top:14px"><a href="#" data-act="tab" data-tab="guide" style="color:var(--accent2)">📘 Comment trouver ses charges ?</a></p>';
   return h;
 }
@@ -1489,7 +1483,7 @@ function viewCal(){
         var dk=nextKeyAround(k);
         inner+='<label class="f">Quelle séance ?</label><select id="calKey">'+progKeys().concat(S.program.BONUS?['BONUS']:[]).concat(S.program.SHORT?['SHORT']:[]).map(function(kk){return '<option value="'+kk+'"'+(kk===dk?' selected':'')+'>'+esc(S.program[kk].name)+'</option>';}).join('')+'</select>'+
                '<div class="row" style="margin-top:8px"><button class="sm primary" data-act="calAddOk" data-date="'+k+'">Ajouter</button><button class="sm ghost" data-act="calAddCancel">✕</button></div>';
-      } else inner+=((S.acts||[]).some(function(x){return x.date===k;})?'':'<div class="muted small">Repos 😴</div>')+(k>=today?'<button class="sm ghost" data-act="calAdd" data-date="'+k+'" style="margin-top:6px">＋ Ajouter une séance</button>':'');
+      } else inner+=((S.acts||[]).some(function(x){return x.date===k;})?'':'<div class="muted small">Repos 😴</div>')+(k>=today?'<button class="sm ghost" data-act="calAdd" data-date="'+k+'" style="margin:6px 6px 0 0">＋ Séance</button>':'');
     }
     (S.acts||[]).filter(function(x){return x.date===k;}).forEach(function(x){
       inner+='<div class="row between" style="margin-top:6px"><div class="ok b">🏓 '+esc(x.name)+' · '+x.min+' min · '+(x.est?'≈ ':'')+actKcal(x)+' kcal</div><button class="sm ghost danger" data-act="actDel" data-id="'+x.id+'">✕</button></div>';
@@ -1499,7 +1493,7 @@ function viewCal(){
       inner+='<div style="margin-top:8px"><label class="f">Activité</label><input id="actName" value="'+esc(lastA?lastA.name:'Tennis de table')+'">'+
              '<div class="two" style="margin-top:8px"><div><label class="f">Durée (min)</label><input id="actMin" inputmode="numeric" value="'+(lastA?lastA.min:90)+'"></div><div><label class="f">Calories</label><input id="actKcal" inputmode="numeric" placeholder="vide = estimation"></div></div>'+
              '<div class="row" style="margin-top:8px"><button class="sm primary" data-act="actOk" data-date="'+k+'">Ajouter</button><button class="sm ghost" data-act="actCancel">✕</button></div></div>';
-    } else inner+='<button class="sm ghost" data-act="actAdd" data-date="'+k+'" style="margin-top:8px">＋ Activité (tennis de table…)</button>';
+    } else inner+='<button class="sm ghost" data-act="actAdd" data-date="'+k+'" style="margin:6px 6px 0 0">＋ Activité</button>';
     var gk=key||(ds[0]&&ds[0].day), gcol=(gk&&S.program[gk])?sCol(S.program[gk].name):'';
     h+='<div class="card'+(k===today?' hl':'')+'" style="padding:12px 14px'+(gcol?';border-left:6px solid '+gcol:'')+'"><div class="row" style="align-items:flex-start"><div class="dow b">'+DOW[i]+' '+d.getDate()+'</div><div style="flex:1">'+inner+'</div></div></div>';
   }
@@ -1642,6 +1636,15 @@ function viewBody(){
      Object.keys(MET).map(function(k){return '<button class="sm'+(k===cm?' on':'')+'" data-act="cm" data-m="'+k+'">'+MET[k].l+'</button>';}).join('')+'</div>'+
      '<h2 style="margin:0 0 6px">'+MET[cm].l+(MET[cm].u?' ('+MET[cm].u+')':'')+'</h2>'+chart(pts,MET[cm].u,cm==='w'?num(S.targetWeight):0)+'</div>';
 
+  if(comp.length){
+    h+='<details class="sec" data-sec="hist"'+(openSec.hist?' open':'')+' style="margin-top:12px"><summary>Historique de mes bilans InBody ('+comp.length+')</summary><div style="margin-top:8px">';
+    comp.slice(-10).reverse().forEach(function(e){
+      h+='<div class="card row between"><div><span class="b">'+fmtDate(e.date)+'</span><div class="muted small" style="margin-top:3px">'+fmt(e.w)+' kg'+(e.pct!=null?' · '+fmt(e.pct)+' % gras':'')+(e.mus!=null?' · '+fmt(e.mus)+' kg muscle':'')+'</div></div>'+
+         '<button class="sm danger ghost" data-act="compDel" data-id="'+e.id+'">'+(armed==='cd'+e.id?'Confirmer ?':'Suppr.')+'</button></div>';
+    });
+    h+='</div></details>';
+  }
+  h+='<details class="sec" data-sec="addm"'+(openSec.addm?' open':'')+' style="margin-top:12px"><summary>＋ Ajouter une mesure (bilan InBody, pesée, objectif)</summary><div style="margin-top:8px">';
   h+='<div class="card"><h2 style="margin-top:0">Nouveau bilan InBody</h2><div class="two"><div><label class="f">Date</label><input type="date" id="cDate" value="'+ymd(new Date())+'"></div>'+
      '<div><label class="f">Poids (kg)</label><input id="cW" inputmode="decimal"></div>'+
      '<div><label class="f">Masse grasse (kg)</label><input id="cFat" inputmode="decimal"></div>'+
@@ -1651,14 +1654,6 @@ function viewBody(){
      '<p class="small muted" style="margin:10px 0">Le % de graisse est calculé automatiquement.</p>'+
      '<button class="primary full" data-act="compAdd">Enregistrer le bilan</button></div>';
 
-  if(comp.length){
-    h+='<h2>Bilans InBody</h2>';
-    comp.slice(-10).reverse().forEach(function(e){
-      h+='<div class="card row between"><div><span class="b">'+fmtDate(e.date)+'</span><div class="muted small" style="margin-top:3px">'+fmt(e.w)+' kg'+(e.pct!=null?' · '+fmt(e.pct)+' % gras':'')+(e.mus!=null?' · '+fmt(e.mus)+' kg muscle':'')+'</div></div>'+
-         '<button class="sm danger ghost" data-act="compDel" data-id="'+e.id+'">'+(armed==='cd'+e.id?'Confirmer ?':'Suppr.')+'</button></div>';
-    });
-  }
-
   h+='<div class="card" style="margin-top:12px"><h2 style="margin-top:0">Pesée rapide</h2><div class="two"><div><label class="f">Date</label><input type="date" id="bDate" value="'+ymd(new Date())+'"></div>'+
      '<div><label class="f">Poids (kg)</label><input id="bW" inputmode="decimal" placeholder="ex. 103,5"></div></div>'+
      '<div style="margin:10px 0"><label class="f">Tour de taille (cm), optionnel</label><input id="bWaist" inputmode="decimal"></div>'+
@@ -1666,6 +1661,7 @@ function viewBody(){
   var tw=num(S.targetWeight), cur=ws.length?ws[ws.length-1].w:null;
   h+='<div class="card"><label class="f">Poids objectif (kg)</label><input inputmode="decimal" data-tw="1" value="'+esc(S.targetWeight)+'" placeholder="ex. 90">'+
      (tw&&cur?'<p class="small muted" style="margin:8px 0 0">Il te reste <b style="color:var(--text)">'+fmt(Math.max(0,cur-tw))+' kg</b> à perdre.</p>':'')+'</div>';
+  h+='</div></details>';
   var list=S.body.slice().sort(function(a,b){return a.date<b.date?-1:1;});
   if(list.length){
     h+='<h2>Pesées rapides</h2>';
